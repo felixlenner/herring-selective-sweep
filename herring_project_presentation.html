@@ -25,13 +25,16 @@ class: center, middle, inverse, title-slide
 
 # Introduction/Background 
 
-- whats a sweep
+- The Baltic Sea was formed approximately 15,000 years ago, during its creation Atlantic herring migrated into the new habitat causing a bottleneck of their gene pool and forming a population that would become the subspecies Baltic herring.
+- This caused a selective sweep in the new population
+
+- Selective Sweep = The process of a beneficial mutation increasing in frequency and becoming fixed, resulting in less genetic variation in the genome around the mutation.
 
 - the fishes maybe
 
 - other stuff...
 
-- Aim
+- Aim: Locate the peaks and extents of selective sweeps occurring the chromosome 4 of the baltic herring genome
 
 - "A brief introduction to the project (What is it about? What is the purpose of the project?"
 
@@ -87,32 +90,11 @@ areas &lt;- c("Atlantic", "Baltic", "SeaofJapan", "BarentsSea", "WhiteSea", "Pac
 eigenvec &lt;- eigenvec %&gt;% 
   mutate(Area = str_extract(ID1, paste(areas, collapse = "|")))
 ```
----
-# Construct variance label
 
-```r
-variance_label &lt;- function(pc, var_vector) {
-  # keep PC number
-  pc &lt;- as.numeric(sub("\\D+", "", pc))
-  # Calculate variance
-  variance &lt;- var_vector[pc] / sum(var_vector)
-  # Construct label
-  label &lt;- paste0("PC", pc, " (", round(variance*100, 2), "%)")
-  # Return the label 
-  return(label)
-}
-```
+
 ---
 # Plot PCA with area as color 
-
-```r
-ggplot(eigenvec, aes(x = PC1, y = PC2, color = Area)) + 
-  geom_point() +
-  xlab(variance_label("PC1", eigenval)) + 
-  ylab(variance_label("PC2", eigenval))
-```
-
-![](herring_project_presentation_files/figure-html/unnamed-chunk-4-1.svg)&lt;!-- --&gt;
+![](herring_project_presentation_files/figure-html/unnamed-chunk-4-1.png)&lt;!-- --&gt;
 ---
 # Balsfjord are outliers
 
@@ -174,22 +156,8 @@ delta_allele_freq &lt;- delta_allele_freq %&gt;%
   mutate(FREQ = abs(atlantic_allele_freq$FREQ - baltic_allele_freq$FREQ), 
          ID = "Delta Allele Freq")
 ```
----
-# More R
 
-```r
-combined_allele_freq &lt;- rbind(atlantic_allele_freq, 
-                       baltic_allele_freq, 
-                       delta_allele_freq)
 
-window_size = 1000
-
-# Calculates break size based on window size 
-break_size &lt;- function(positions, window_size) {
-  breaks &lt;- (max(positions) - min(positions)) / (window_size)
-  return(breaks)
-}
-```
 ---
 # Plot alleles in R
 
@@ -202,110 +170,22 @@ combined_allele_freq %&gt;%
   facet_wrap(~ID, ncol = 3)
 ```
 
-![](herring_project_presentation_files/figure-html/unnamed-chunk-6-1.svg)&lt;!-- --&gt;
+![](herring_project_presentation_files/figure-html/unnamed-chunk-6-1.png)&lt;!-- --&gt;
 ---
 
 # Heterozygosity - not run 
 
-```r
-# Load heterozygosity 
-atlantic_raw_het_freq &lt;- read_tsv("data/chr4_atlantic.hwe")
-baltic_raw_het_freq &lt;- read_tsv("data/chr4_baltic.hwe")
-
-# Separate `OBS(HOM1/HET/HOM2)` column, calculate frequency and select important
-atlantic_het_freq &lt;- atlantic_raw_het_freq %&gt;% 
-  separate(`OBS(HOM1/HET/HOM2)`, c("OBS_HOM1", "OBS_HET", "OBS_HOM2"), convert = T) %&gt;%
-  mutate(TOT_OBS = OBS_HOM1 + OBS_HET + OBS_HOM2, 
-         FREQ = OBS_HET / TOT_OBS,
-         ID = "Atlantic Obs Het Freq") %&gt;%
-  select(POS, FREQ, ID, TOT_OBS)
-
-baltic_het_freq &lt;- baltic_raw_het_freq %&gt;% 
-  separate(`OBS(HOM1/HET/HOM2)`, c("OBS_HOM1", "OBS_HET", "OBS_HOM2"), convert = T) %&gt;%
-  mutate(TOT_OBS = OBS_HOM1 + OBS_HET + OBS_HOM2, 
-         FREQ = OBS_HET / TOT_OBS,
-         ID = "Baltic Obs Het Freq") %&gt;%
-  select(POS, FREQ, ID, TOT_OBS)
-
-# Initialize delta df with POS
-delta_het_freq &lt;- atlantic_het_freq %&gt;% select(POS)
-
-# Calculate delta 
-delta_het_freq &lt;- delta_het_freq %&gt;% 
-  mutate(FREQ = abs(atlantic_het_freq$FREQ - baltic_het_freq$FREQ), 
-         ID = "Delta Obs Het Freq")
-
-atlantic_baltic_het_freq &lt;- rbind(atlantic_het_freq, baltic_het_freq)
-```
 ---
 # Missingness plot - this would be quite nice I guess
-
-```r
-# Should be in code above but needs to be run
-# Choose a filter threshold, % of max
-filter_threshold = .95
-
-# Keep positions 
-positions_to_keep &lt;- inner_join(atlantic_het_freq, baltic_het_freq, by = "POS") %&gt;%
-  filter(TOT_OBS.x &gt;= filter_threshold * max(TOT_OBS.x) &amp;
-         TOT_OBS.y &gt;= filter_threshold * max(TOT_OBS.y)) %&gt;%
-  select(POS)
-
-atlantic_baltic_het_freq %&gt;%
-  group_by(gr = cut(POS, break_size(POS, 1e5)), ID) %&gt;%
-  summarize(`Position (Mb)` = mean(POS/1e6), `Mean missingness` = mean(1-TOT_OBS/max(TOT_OBS))) %&gt;%
-  ggplot(aes(`Position (Mb)`,`Mean missingness`, col = ID)) + 
-  geom_line()
-```
 
 ```
 ## `summarise()` has grouped output by 'gr'. You can override using the `.groups` argument.
 ```
 
 ![](herring_project_presentation_files/figure-html/missingness-plot-1.png)&lt;!-- --&gt;
-
-```r
-# Remove the TOT_OBS column to be able to combine with delta_het_freq and plot without changing the code
-atlantic_het_freq2 &lt;- atlantic_het_freq %&gt;% select(POS, FREQ, ID)
-baltic_het_freq2 &lt;- baltic_het_freq %&gt;% select(POS, FREQ, ID)
-```
 ---
 # Annotation and code stuff
 - Bash commands to get annotations here maybe... 
-
-```r
-# *** ANNOTATION ***
-
-annotate_positions &lt;- function(input_df, annotation_df) {
-  # Takes an input dataframe containing (at least) POS, and annotation df containing POS and ANN, 
-  # and appends the annotations to the input dataframe
-  
-  # Filter positions which should be annotated 
-  filtered_annotations &lt;- annotation_df %&gt;% filter(POS %in% input_df$POS)
-  
-  # This info can be found in the VCF file 
-  snpEff_column_names &lt;- c("Allele","Annotation","Annotation_Impact","Gene_Name","Gene_ID","Feature_Type","Feature_ID","Transcript_BioType","Rank","HGVS.c","HGVS.p","cDNA.pos / cDNA.length","CDS.pos / CDS.length","AA.pos / AA.length","Distance","ERRORS / WARNINGS / INFO")
-  
-  untangled_annotations &lt;- filtered_annotations %&gt;%
-    mutate(ANN = str_split(ANN, ",")) %&gt;% # Split the ANN column into a list of annotations by comma
-    unnest(ANN) %&gt;% # create rows for each position - annotation pair
-    group_by(POS) %&gt;% # group by position 
-    mutate(Annotation_ID = seq_along(POS), .after = POS) %&gt;% # assign a number to each annotation
-    ungroup() %&gt;% # ungroup the values again 
-    #separate is really slow in R 4.x for some reason, maybe some map variant would be better?
-    separate(ANN, into = snpEff_column_names, sep = "\\|")# separate the ANN column (now with one annotation per row) into columns based on SnpEff information
-  
-  # join annotations to input df
-  output_df &lt;- inner_join(input_df, untangled_annotations, by = "POS")  
-  
-  return(output_df)
-}
-
-library(vroom) # you could also use read_delim, but its (~9x) slower in this case
-
-# bcftools query -f "%POS\t%ANN\n" chr4.vcf &gt; original_already_annotated.txt
-annotation &lt;- vroom("data/original_already_annotated.txt", delim = "\t", col_names = c("POS", "ANN"))
-```
 
 ```
 ## Rows: 1,158,327
@@ -316,26 +196,6 @@ annotation &lt;- vroom("data/original_already_annotated.txt", delim = "\t", col_
 ## 
 ## Use `spec()` to retrieve the guessed column specification
 ## Pass a specification to the `col_types` argument to quiet this message
-```
-
-```r
-# Filter on frequency, takes to long time to annotate all positions and we don't need to 
-# Or a certain part of the chromosome, .9e7 to 1.4e7 works fine to annotate ~
-significant_positions &lt;- delta_allele_freq %&gt;% filter(between(POS, 0.9e7, 1.3e7)) %&gt;% filter(FREQ &gt; 0.6)
-
-# Remove SNPs with high missingess by only keeping those that are in (in my case) positions_to_keep
-# (if you have not already done so),
-# Before running the annotate_positions functions
-
-annotated_positions &lt;- significant_positions %&gt;%
-  filter(POS %in% positions_to_keep$POS) %&gt;%
-  annotate_positions(annotation)
-
-# Can then filter what we want, for example
-annotated_positions %&gt;% group_by(Gene_ID) %&gt;%
-  filter(Feature_Type == "transcript") %&gt;% 
-  summarize(mean.POS = as.integer(mean(POS)), mean.FREQ = mean(FREQ)) %&gt;%
-  select(POS = mean.POS, FREQ = mean.FREQ, Gene_ID)
 ```
 
 ```
@@ -351,18 +211,8 @@ annotated_positions %&gt;% group_by(Gene_ID) %&gt;%
 ## 7 11404399 0.639 ENSCHAG00000026767
 ```
 
-```r
-# A bug in biomaRt overwrites dplyr::select, workaround is to unload dplyr, then load it _after_ biomaRt
-detach("package:dplyr")
-library(biomaRt)
-```
-
 ```
 ## Warning: package 'biomaRt' was built under R version 4.0.3
-```
-
-```r
-library(dplyr)
 ```
 
 ```
@@ -388,46 +238,13 @@ library(dplyr)
 ##     intersect, setdiff, setequal, union
 ```
 
-```r
-# get the herring database
-ensembl = useMart("ensembl",dataset="charengus_gene_ensembl")
-
-zfin_ids &lt;- annotated_positions %&gt;% 
-  filter(Feature_Type == "transcript" &amp; Annotation != "intron_variant") %&gt;%
-  group_by(Gene_ID) %&gt;%
-  dplyr::select(POS, FREQ, Gene_ID, Annotation_ID, Feature_Type, Annotation) %&gt;%
-  summarize(mean.pos = mean(POS), mean.freq = mean(FREQ), Gene_ID) %&gt;% unique() %&gt;%
-  mutate(getBM(attributes=c('ensembl_gene_id', 'zfin_id_symbol'), # Get zfin_id_symbol
-                    filters = 'ensembl_gene_id', 
-                    values = Gene_ID, 
-                    mart = ensembl, uniqueRows = F)) %&gt;%
-  mutate(zfin_id_symbol = ifelse(zfin_id_symbol == "", NA, zfin_id_symbol)) %&gt;%
-  #na.omit() %&gt;% # if we want to filter only those genes which has zfin_ids
-  dplyr::select(-ensembl_gene_id)
-```
-
 ```
 ## `summarise()` has grouped output by 'Gene_ID'. You can override using the `.groups` argument.
 ```
----
-# Combine data 
 
-```r
-# Combine data - Commented out combining all of the data 
-combined_data &lt;- rbind(atlantic_allele_freq, 
-                       #atlantic_het_freq2, 
-                       baltic_allele_freq, 
-                       #baltic_het_freq2, 
-                       delta_allele_freq)
-                       #delta_het_freq)
-# Combine only the heterozygosity
-#combined_data &lt;- rbind(atlantic_het_freq2, baltic_het_freq2, delta_het_freq)
 
-# Filter out data
-combined_data &lt;- combined_data %&gt;% filter(POS %in% positions_to_keep$POS)
-```
 ---
-# code
+# Plot nice 
 
 ```
 ## Warning: Removed 3 rows containing missing values (geom_text_repel).
