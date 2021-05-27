@@ -108,10 +108,9 @@ ggplot(eigenvec, aes(x = PC1, y = PC2, color = Area)) +
 # Balsfjord are outliers in Atlantic 
 eigenvec %>% filter(PC1 > 0 & Area == "Atlantic") %>% select(ID1)
 ```
-
-
-
 ---
+# next
+----
 
 # Summarize the final results
 
