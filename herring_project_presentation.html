@@ -427,47 +427,13 @@ combined_data &lt;- rbind(atlantic_allele_freq,
 combined_data &lt;- combined_data %&gt;% filter(POS %in% positions_to_keep$POS)
 ```
 ---
-# Summarize the final results
-
-- Maybe a plot of delta allele freq with annotated genes here? 
-
-- Or a plot + list of genes
-
-```r
-library(ggrepel)
-
-combined_data %&gt;%
-  filter(ID == "Delta Allele Freq") %&gt;%
-  filter(between(POS, .9e7, 1.4e7)) %&gt;%
-  #group_by(gr = cut(POS, break_size(POS, window_size))) %&gt;%
-  #summarize(`Position (Mb)` = mean(POS/1e6), `Mean Frequency` = mean(FREQ)) %&gt;%
-  mutate(`Position (Mb)` = POS/1e6, `Frequency` = FREQ) %&gt;%
-  #ggplot(aes(`Position (Mb)`, `Mean Frequency`)) + 
-  ggplot(aes(`Position (Mb)`, `Frequency`)) + 
-  geom_jitter(alpha = .3, size = .3, width = 0, height =.0) + 
-  geom_point(data = zfin_ids, aes(x = mean.pos/1e6, y = mean.freq, color = "red"), alpha = 1, size = .3) +
-  geom_text_repel(data = zfin_ids, 
-                  aes(x = mean.pos/1e6, y = mean.freq, label = zfin_id_symbol), 
-                  max.overlaps = Inf, 
-                  min.segment.length = 0,
-                  segment.size = 0.2,
-                  box.padding = 1
-                  #segment.color = "red",
-                  #arrow = arrow(length = unit(0.07, "inches"), type = "open")
-                  ) + theme(legend.position = "none") + 
-  ylab("Delta Allele Freq") + 
-  xlab("Chromosome 4 (Mb)")
-```
+# code
 
 ```
 ## Warning: Removed 3 rows containing missing values (geom_text_repel).
 ```
 
 ![](herring_project_presentation_files/figure-html/unnamed-chunk-9-1.png)&lt;!-- --&gt;
-
-```r
-zfin_ids
-```
 
 ```
 ## # A tibble: 7 x 4
@@ -482,6 +448,12 @@ zfin_ids
 ## 6 ENSCHAG00000026024 11383908.     0.646 qars1         
 ## 7 ENSCHAG00000026767 11383125      0.671 espn
 ```
+---
+#Summarize the final results
+
+- Maybe a plot of delta allele freq with annotated genes here? 
+
+- Or a plot + list of genes
 
 ---
 

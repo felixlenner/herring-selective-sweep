@@ -322,12 +322,8 @@ combined_data <- rbind(atlantic_allele_freq,
 combined_data <- combined_data %>% filter(POS %in% positions_to_keep$POS)
 ```
 ---
-# Summarize the final results
-
-- Maybe a plot of delta allele freq with annotated genes here? 
-
-- Or a plot + list of genes
-```{r, eval = T}
+# code
+```{r, eval = T, echo=FALSE}
 library(ggrepel)
 
 combined_data %>%
@@ -354,6 +350,12 @@ combined_data %>%
 
 zfin_ids
 ```
+---
+#Summarize the final results
+
+- Maybe a plot of delta allele freq with annotated genes here? 
+
+- Or a plot + list of genes
 
 ---
 
