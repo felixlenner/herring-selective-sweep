@@ -56,22 +56,20 @@ class: center, middle, inverse, title-slide
 
 # Check population structure 
 
-1. Extract chromosome 4 
+1. Extract chromosome 4 (skip?)
 
 ```bash
 vcftools --gzvcf data/Ch_v2.0.2_79_ind_snpEff.vcf.gz 
 --chr chr4 --recode --out data/chr4
 ```
-
-1. Principal component analysis with PLINK 
+1. Principal component analysis with PLINK
 
 ```bash
 plink --vcf data/Ch_v2.0.2_79_ind_snpEff_chr4.vcf 
 --double-id  --pca tabs --out data/chr4_pca
 ```
 ---
-# Plot PCA
-- Read and import the files
+# Read files (skip?)
 
 ```r
 library(tidyverse)
@@ -93,14 +91,21 @@ eigenvec &lt;- eigenvec %&gt;%
 
 
 ---
-# Plot PCA with area as color 
-![](herring_project_presentation_files/figure-html/unnamed-chunk-4-1.png)&lt;!-- --&gt;
----
-# Balsfjord are outliers
-
+# PCA plot (keep plot, skip code?)
 
 ```r
-# Balsfjord are outliers in Atlantic 
+ggplot(eigenvec, aes(x = PC1, y = PC2, color = Area)) + 
+  geom_point() +
+  xlab(variance_label("PC1", eigenval)) + 
+  ylab(variance_label("PC2", eigenval))
+```
+
+![](herring_project_presentation_files/figure-html/unnamed-chunk-4-1.png)&lt;!-- --&gt;
+---
+# Balsfjord are outliers (nice to keep?)
+
+```r
+# Filter the PCA datas for the atlantic outliers 
 eigenvec %&gt;% filter(PC1 &gt; 0 &amp; Area == "Atlantic") %&gt;% select(ID1)
 ```
 
@@ -113,13 +118,18 @@ eigenvec %&gt;% filter(PC1 &gt; 0 &amp; Area == "Atlantic") %&gt;% select(ID1)
 ## 3 HWS63_Balsfjord_Atlantic
 ## 4 HWS64_Balsfjord_Atlantic
 ```
----
-# Extract samples, produce new vcf files 
+(skip this part?)
 
 ```bash
-# Get samples using bcftools
-bcftools query -l chr4.recode.vcf | grep "Baltic" &gt; baltic_samples.txt
-bcftools query -l .recode.vcf | grep "Atlantic" | grep -v "Balsfjord" &gt; atlantic_samples.txt
+
+# Extract samples, produce new vcf files - to appendix!
+
+# Get sample names
+bcftools query -l chr4.recode.vcf | 
+  grep "Baltic" &gt; baltic_samples.txt
+
+bcftools query -l chr4.recode.vcf | 
+  grep "Atlantic" | grep -v "Balsfjord" &gt; atlantic_samples.txt
 
 # Produce vcf-files for chr4 where atlantic, baltic, atlantic and balic are kept
 vcftools --vcf chr4.recode.vcf -keep atlantic_samples.txt --recode --out chr4_atlantic
@@ -129,18 +139,19 @@ vcftools --vcf data/chr4_atlantic.recode.vcf --freq2 --out chr4_atlantic
 vcftools --vcf data/chr4_baltic.recode.vcf --freq2 --out chr4_baltic
 ```
 ---
-# Load allele frequencies into R
+# Allele frequencies (skip this?)
+Load samples 
 
 ```r
-# Set column names and types 
 allele_column_names = c("CHROM", "POS", "N_ALLELES", "N_CHR", "A1_FREQ", "A2_FREQ")
 allele_column_types = "cddddd"
 
-# Load samples
 atlantic_raw_allele_freq &lt;- read_tsv("data/chr4_atlantic.frq", skip = 1, col_names = allele_column_names, col_types = allele_column_types)
 baltic_raw_allele_freq &lt;- read_tsv("data/chr4_baltic.frq", skip = 1, col_names = allele_column_names, col_types = allele_column_types)
+```
+Select important, add identifier
 
-# Select important, add identifier
+```r
 atlantic_allele_freq &lt;- atlantic_raw_allele_freq %&gt;% 
   select(POS, FREQ = A2_FREQ) %&gt;% 
   mutate(ID = "Atlantic Alt Allele Freq")
@@ -148,16 +159,37 @@ atlantic_allele_freq &lt;- atlantic_raw_allele_freq %&gt;%
 baltic_allele_freq &lt;- baltic_raw_allele_freq %&gt;% 
   select(POS, FREQ = A2_FREQ) %&gt;% 
   mutate(ID = "Baltic Alt Allele Freq")
+```
+---
+# Allele frequencies 
 
-# Make delta df, calculate delta af
+Calculate the delta allele frequency
+
+```r
 delta_allele_freq &lt;- atlantic_allele_freq %&gt;% select(POS)
 
+#Calculate delta allele frequency
 delta_allele_freq &lt;- delta_allele_freq %&gt;% 
-  mutate(FREQ = abs(atlantic_allele_freq$FREQ - baltic_allele_freq$FREQ), 
-         ID = "Delta Allele Freq")
+  mutate(
+*   FREQ = abs(atlantic_allele_freq$FREQ -
+*                baltic_allele_freq$FREQ
+               ), 
+    ID = "Delta Allele Freq")
 ```
+Combine and set a window size 
 
+```r
+combined_allele_freq &lt;- rbind(atlantic_allele_freq, 
+                       baltic_allele_freq, 
+                       delta_allele_freq)
 
+window_size = 1000
+
+# Calculates break size based on window size 
+break_size &lt;- function(positions, window_size) {
+  breaks &lt;- (max(positions) - min(positions)) / (window_size)
+  return(breaks) }
+```
 ---
 # Plot alleles in R
 
@@ -171,18 +203,37 @@ combined_allele_freq %&gt;%
 ```
 
 ![](herring_project_presentation_files/figure-html/unnamed-chunk-6-1.png)&lt;!-- --&gt;
----
 
-# Heterozygosity - not run 
 
 ---
-# Missingness plot - this would be quite nice I guess
+# Missingness plot
 
-```
-## `summarise()` has grouped output by 'gr'. You can override using the `.groups` argument.
+```r
+atlantic_baltic_het_freq %&gt;%
+  group_by(gr = cut(POS, break_size(POS, 1e5)), ID) %&gt;%
+  summarize(`Position (Mb)` = mean(POS/1e6), `Mean missingness` = mean(1-TOT_OBS/max(TOT_OBS))) %&gt;%
+  ggplot(aes(`Position (Mb)`,`Mean missingness`, col = ID)) + 
+  geom_line()
 ```
 
 ![](herring_project_presentation_files/figure-html/missingness-plot-1.png)&lt;!-- --&gt;
+---
+# Filter on missing data
+
+```r
+# Should be in code above but needs to be run
+# Choose a filter threshold, % of max
+filter_threshold = .95
+
+# Keep positions 
+positions_to_keep &lt;- inner_join(atlantic_het_freq, baltic_het_freq, by = "POS") %&gt;%
+  filter(TOT_OBS.x &gt;= filter_threshold * max(TOT_OBS.x) &amp;
+         TOT_OBS.y &gt;= filter_threshold * max(TOT_OBS.y)) %&gt;%
+  select(POS)
+# Remove the TOT_OBS column to be able to combine with delta_het_freq and plot without changing the code
+atlantic_het_freq2 &lt;- atlantic_het_freq %&gt;% select(POS, FREQ, ID)
+baltic_het_freq2 &lt;- baltic_het_freq %&gt;% select(POS, FREQ, ID)
+```
 ---
 # Annotation and code stuff
 - Bash commands to get annotations here maybe... 
@@ -212,10 +263,6 @@ combined_allele_freq %&gt;%
 ```
 
 ```
-## Warning: package 'biomaRt' was built under R version 4.0.3
-```
-
-```
 ## 
 ## Attaching package: 'dplyr'
 ```
@@ -224,6 +271,12 @@ combined_allele_freq %&gt;%
 ## The following object is masked from 'package:biomaRt':
 ## 
 ##     select
+```
+
+```
+## The following objects are masked from 'package:data.table':
+## 
+##     between, first, last
 ```
 
 ```
@@ -250,7 +303,7 @@ combined_allele_freq %&gt;%
 ## Warning: Removed 3 rows containing missing values (geom_text_repel).
 ```
 
-![](herring_project_presentation_files/figure-html/unnamed-chunk-9-1.png)&lt;!-- --&gt;
+![](herring_project_presentation_files/figure-html/unnamed-chunk-10-1.png)&lt;!-- --&gt;
 
 ```
 ## # A tibble: 7 x 4

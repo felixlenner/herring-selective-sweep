@@ -15,6 +15,12 @@ output:
 ```{r, setup, include=FALSE}
 knitr::opts_knit$set(root.dir = '~/project/notebook-test/herring_project_presentation/herring-selective-sweep-presentation/')
 knitr::opts_chunk$set(cache = TRUE)
+
+hook_source <- knitr::knit_hooks$get('source')
+knitr::knit_hooks$set(source = function(x, options) {
+  x <- stringr::str_replace(x, "^[[:blank:]]?([^*].+?)[[:blank:]]*#<<[[:blank:]]*$", "*\\1")
+  hook_source(x, options)
+})
 ```
 
 
@@ -51,21 +57,19 @@ knitr::opts_chunk$set(cache = TRUE)
 
 # Check population structure 
 
-1. Extract chromosome 4 
-```{bash, eval = FALSE}
+1. Extract chromosome 4 (skip?)
+```{bash, eval=FALSE, echo=T}
 vcftools --gzvcf data/Ch_v2.0.2_79_ind_snpEff.vcf.gz 
 --chr chr4 --recode --out data/chr4
 ```
-
-1. Principal component analysis with PLINK 
-```{bash, eval = F}
+1. Principal component analysis with PLINK
+```{bash, eval=F, echo=T}
 plink --vcf data/Ch_v2.0.2_79_ind_snpEff_chr4.vcf 
 --double-id  --pca tabs --out data/chr4_pca
 ```
 ---
-# Plot PCA
-- Read and import the files
-```{r, message=FALSE}
+# Read files (skip?)
+```{r, message=FALSE, echo=TRUE}
 library(tidyverse)
 # Read files
 eigenvec <- read_tsv("data/chr4_pca.eigenvec", col_names = F)
@@ -83,7 +87,7 @@ eigenvec <- eigenvec %>%
   mutate(Area = str_extract(ID1, paste(areas, collapse = "|")))
 ```
 
-```{r, variance-label, echo = F}
+```{r, variance-label, echo=FALSE}
 variance_label <- function(pc, var_vector) {
   # keep PC number
   pc <- as.numeric(sub("\\D+", "", pc))
@@ -96,26 +100,30 @@ variance_label <- function(pc, var_vector) {
 }
 ```
 ---
-# Plot PCA with area as color 
-```{r, fig.height=4, dev='png', echo = F}
+# PCA plot (keep plot, skip code?)
+```{r, fig.height=4, dev='png', echo=T}
 ggplot(eigenvec, aes(x = PC1, y = PC2, color = Area)) + 
   geom_point() +
   xlab(variance_label("PC1", eigenval)) + 
   ylab(variance_label("PC2", eigenval))
 ```
 ---
-# Balsfjord are outliers
-
+# Balsfjord are outliers (nice to keep?)
 ```{r, list-outliers}
-# Balsfjord are outliers in Atlantic 
+# Filter the PCA datas for the atlantic outliers 
 eigenvec %>% filter(PC1 > 0 & Area == "Atlantic") %>% select(ID1)
 ```
----
-# Extract samples, produce new vcf files 
-```{bash, eval = F}
-# Get samples using bcftools
-bcftools query -l chr4.recode.vcf | grep "Baltic" > baltic_samples.txt
-bcftools query -l .recode.vcf | grep "Atlantic" | grep -v "Balsfjord" > atlantic_samples.txt
+(skip this part?)
+```{bash, eval=F, echo=T}
+
+# Extract samples, produce new vcf files - to appendix!
+
+# Get sample names
+bcftools query -l chr4.recode.vcf | 
+  grep "Baltic" > baltic_samples.txt
+
+bcftools query -l chr4.recode.vcf | 
+  grep "Atlantic" | grep -v "Balsfjord" > atlantic_samples.txt
 
 # Produce vcf-files for chr4 where atlantic, baltic, atlantic and balic are kept
 vcftools --vcf chr4.recode.vcf -keep atlantic_samples.txt --recode --out chr4_atlantic
@@ -125,17 +133,17 @@ vcftools --vcf data/chr4_atlantic.recode.vcf --freq2 --out chr4_atlantic
 vcftools --vcf data/chr4_baltic.recode.vcf --freq2 --out chr4_baltic
 ```
 ---
-# Load allele frequencies into R
+# Allele frequencies (skip this?)
+Load samples 
 ```{r, load-allele-frequencies}
-# Set column names and types 
 allele_column_names = c("CHROM", "POS", "N_ALLELES", "N_CHR", "A1_FREQ", "A2_FREQ")
 allele_column_types = "cddddd"
 
-# Load samples
 atlantic_raw_allele_freq <- read_tsv("data/chr4_atlantic.frq", skip = 1, col_names = allele_column_names, col_types = allele_column_types)
 baltic_raw_allele_freq <- read_tsv("data/chr4_baltic.frq", skip = 1, col_names = allele_column_names, col_types = allele_column_types)
-
-# Select important, add identifier
+```
+Select important, add identifier
+```{r, select-allele-frequencies}
 atlantic_allele_freq <- atlantic_raw_allele_freq %>% 
   select(POS, FREQ = A2_FREQ) %>% 
   mutate(ID = "Atlantic Alt Allele Freq")
@@ -143,19 +151,24 @@ atlantic_allele_freq <- atlantic_raw_allele_freq %>%
 baltic_allele_freq <- baltic_raw_allele_freq %>% 
   select(POS, FREQ = A2_FREQ) %>% 
   mutate(ID = "Baltic Alt Allele Freq")
+```
+---
+# Allele frequencies 
 
-# Make delta df, calculate delta af
+Calculate the delta allele frequency
+```{r tidy=FALSE, comment='#', delta-allele-frequencies}
 delta_allele_freq <- atlantic_allele_freq %>% select(POS)
 
+#Calculate delta allele frequency
 delta_allele_freq <- delta_allele_freq %>% 
-  mutate(FREQ = abs(atlantic_allele_freq$FREQ - baltic_allele_freq$FREQ), 
-         ID = "Delta Allele Freq")
+  mutate(
+    FREQ = abs(atlantic_allele_freq$FREQ - #<<
+                 baltic_allele_freq$FREQ   #<<
+               ), 
+    ID = "Delta Allele Freq")
 ```
-
-```{r, combine-allele-and-set-window-size, echo=F}
-
-# Move this to the end maybe - some appendix? 
-
+Combine and set a window size 
+```{r, combine-allele-and-set-window-size}
 combined_allele_freq <- rbind(atlantic_allele_freq, 
                        baltic_allele_freq, 
                        delta_allele_freq)
@@ -165,8 +178,7 @@ window_size = 1000
 # Calculates break size based on window size 
 break_size <- function(positions, window_size) {
   breaks <- (max(positions) - min(positions)) / (window_size)
-  return(breaks)
-}
+  return(breaks) }
 ```
 ---
 # Plot alleles in R
@@ -178,9 +190,7 @@ combined_allele_freq %>%
   geom_jitter(width = 0, height = 0.03, size = .1, alpha = .3) + 
   facet_wrap(~ID, ncol = 3)
 ```
----
 
-# Heterozygosity - not run 
 ```{r, eval = T, message=F, warning=F, echo=F}
 # Load heterozygosity 
 atlantic_raw_het_freq <- read_tsv("data/chr4_atlantic.hwe")
@@ -212,8 +222,17 @@ delta_het_freq <- delta_het_freq %>%
 atlantic_baltic_het_freq <- rbind(atlantic_het_freq, baltic_het_freq)
 ```
 ---
-# Missingness plot - this would be quite nice I guess
-```{r, missingness-plot, echo = F}
+# Missingness plot
+```{r, missingness-plot, message=F}
+atlantic_baltic_het_freq %>%
+  group_by(gr = cut(POS, break_size(POS, 1e5)), ID) %>%
+  summarize(`Position (Mb)` = mean(POS/1e6), `Mean missingness` = mean(1-TOT_OBS/max(TOT_OBS))) %>%
+  ggplot(aes(`Position (Mb)`,`Mean missingness`, col = ID)) + 
+  geom_line()
+```
+---
+# Filter on missing data
+```{r}
 # Should be in code above but needs to be run
 # Choose a filter threshold, % of max
 filter_threshold = .95
@@ -223,13 +242,6 @@ positions_to_keep <- inner_join(atlantic_het_freq, baltic_het_freq, by = "POS") 
   filter(TOT_OBS.x >= filter_threshold * max(TOT_OBS.x) &
          TOT_OBS.y >= filter_threshold * max(TOT_OBS.y)) %>%
   select(POS)
-
-atlantic_baltic_het_freq %>%
-  group_by(gr = cut(POS, break_size(POS, 1e5)), ID) %>%
-  summarize(`Position (Mb)` = mean(POS/1e6), `Mean missingness` = mean(1-TOT_OBS/max(TOT_OBS))) %>%
-  ggplot(aes(`Position (Mb)`,`Mean missingness`, col = ID)) + 
-  geom_line()
-
 # Remove the TOT_OBS column to be able to combine with delta_het_freq and plot without changing the code
 atlantic_het_freq2 <- atlantic_het_freq %>% select(POS, FREQ, ID)
 baltic_het_freq2 <- baltic_het_freq %>% select(POS, FREQ, ID)
