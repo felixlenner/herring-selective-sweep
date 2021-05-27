@@ -14,6 +14,7 @@ output:
 
 ```{r, setup, include=FALSE}
 knitr::opts_knit$set(root.dir = '~/project/notebook-test/herring_project_presentation/herring-selective-sweep-presentation/')
+knitr::opts_chunk$set(cache = TRUE)
 ```
 
 
