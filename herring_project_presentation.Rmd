@@ -12,6 +12,11 @@ output:
       countIncrementalSlides: false
 ---
 
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = '~/project/notebook-test/herring_project_presentation/herring-selective-sweep-presentation/')
+```
+
+
 # Introduction/Background 
 
 - whats a sweep
@@ -19,6 +24,8 @@ output:
 - the fishes maybe
 
 - other stuff...
+
+- Aim
 
 - "A brief introduction to the project (What is it about? What is the purpose of the project?"
 
@@ -35,6 +42,74 @@ output:
 - "Walk us through important code snippets or command line calls that you have used"
 
 - "Present what is the input and output, or intermediate results, of the code snippet or command line call you describe."
+
+---
+
+# Check population structure 
+
+1. Extract chromosome 4 
+```{bash, eval = FALSE}
+vcftools --gzvcf data/Ch_v2.0.2_79_ind_snpEff.vcf.gz 
+--chr chr4 --recode --out data/chr4
+```
+
+1. Principal component analysis with PLINK 
+```{bash, eval = F}
+plink --vcf data/Ch_v2.0.2_79_ind_snpEff_chr4.vcf 
+--double-id  --pca tabs --out data/chr4_pca
+```
+---
+# Plot PCA
+- Read and import the files
+```{r, message=FALSE}
+library(tidyverse)
+# Read files
+eigenvec <- read_tsv("data/chr4_pca.eigenvec", col_names = F)
+eigenval <- scan("data/chr4_pca.eigenval") 
+
+# Set eigenvec column names
+colnames(eigenvec) <- c("ID1", "ID2", 
+                        paste0("PC", 1:(ncol(eigenvec)-2)))
+
+# List areas
+areas <- c("Atlantic", "Baltic", "SeaofJapan", "BarentsSea", "WhiteSea", "Pacific")
+
+# extract strings from ID1, if it matches any of the ares, put corresponding value in area
+eigenvec <- eigenvec %>% 
+  mutate(Area = str_extract(ID1, paste(areas, collapse = "|")))
+```
+---
+# Construct variance label
+
+```{r}
+variance_label <- function(pc, var_vector) {
+  # keep PC number
+  pc <- as.numeric(sub("\\D+", "", pc))
+  # Calculate variance
+  variance <- var_vector[pc] / sum(var_vector)
+  # Construct label
+  label <- paste0("PC", pc, " (", round(variance*100, 2), "%)")
+  # Return the label 
+  return(label)
+}
+```
+---
+# Plot PCA with area as color 
+```{r, fig.height=4, dev='svg'}
+ggplot(eigenvec, aes(x = PC1, y = PC2, color = Area)) + 
+  geom_point() +
+  xlab(variance_label("PC1", eigenval)) + 
+  ylab(variance_label("PC2", eigenval))
+```
+---
+# Balsfjord are outliers
+
+```{r}
+# Balsfjord are outliers in Atlantic 
+eigenvec %>% filter(PC1 > 0 & Area == "Atlantic") %>% select(ID1)
+```
+
+
 
 ---
 

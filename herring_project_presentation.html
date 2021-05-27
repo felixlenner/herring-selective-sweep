@@ -5,8 +5,8 @@
     <meta charset="utf-8" />
     <meta name="author" content="Love Chrisson, Felix Lenner &amp; Ben Titmus" />
     <meta name="date" content="2021-05-27" />
-    <link href="libs/remark-css/default.css" rel="stylesheet" />
-    <link href="libs/remark-css/default-fonts.css" rel="stylesheet" />
+    <link href="libs/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link href="libs/remark-css-0.0.1/default-fonts.css" rel="stylesheet" />
   </head>
   <body>
     <textarea id="source">
@@ -20,6 +20,9 @@ class: center, middle, inverse, title-slide
 ---
 
 
+
+
+
 # Introduction/Background 
 
 - whats a sweep
@@ -27,6 +30,8 @@ class: center, middle, inverse, title-slide
 - the fishes maybe
 
 - other stuff...
+
+- Aim
 
 - "A brief introduction to the project (What is it about? What is the purpose of the project?"
 
@@ -43,6 +48,92 @@ class: center, middle, inverse, title-slide
 - "Walk us through important code snippets or command line calls that you have used"
 
 - "Present what is the input and output, or intermediate results, of the code snippet or command line call you describe."
+
+---
+
+# Check population structure 
+
+1. Extract chromosome 4 
+
+```bash
+vcftools --gzvcf data/Ch_v2.0.2_79_ind_snpEff.vcf.gz 
+--chr chr4 --recode --out data/chr4
+```
+
+1. Principal component analysis with PLINK 
+
+```bash
+plink --vcf data/Ch_v2.0.2_79_ind_snpEff_chr4.vcf 
+--double-id  --pca tabs --out data/chr4_pca
+```
+---
+# Plot PCA
+- Read and import the files
+
+```r
+library(tidyverse)
+# Read files
+eigenvec &lt;- read_tsv("data/chr4_pca.eigenvec", col_names = F)
+eigenval &lt;- scan("data/chr4_pca.eigenval") 
+
+# Set eigenvec column names
+colnames(eigenvec) &lt;- c("ID1", "ID2", 
+                        paste0("PC", 1:(ncol(eigenvec)-2)))
+
+# List areas
+areas &lt;- c("Atlantic", "Baltic", "SeaofJapan", "BarentsSea", "WhiteSea", "Pacific")
+
+# extract strings from ID1, if it matches any of the ares, put corresponding value in area
+eigenvec &lt;- eigenvec %&gt;% 
+  mutate(Area = str_extract(ID1, paste(areas, collapse = "|")))
+```
+---
+# Construct variance label
+
+
+```r
+variance_label &lt;- function(pc, var_vector) {
+  # keep PC number
+  pc &lt;- as.numeric(sub("\\D+", "", pc))
+  # Calculate variance
+  variance &lt;- var_vector[pc] / sum(var_vector)
+  # Construct label
+  label &lt;- paste0("PC", pc, " (", round(variance*100, 2), "%)")
+  # Return the label 
+  return(label)
+}
+```
+---
+# Plot PCA with area as color 
+
+```r
+ggplot(eigenvec, aes(x = PC1, y = PC2, color = Area)) + 
+  geom_point() +
+  xlab(variance_label("PC1", eigenval)) + 
+  ylab(variance_label("PC2", eigenval))
+```
+
+![](herring_project_presentation_files/figure-html/unnamed-chunk-5-1.svg)&lt;!-- --&gt;
+---
+# Balsfjord are outliers
+
+
+```r
+# Balsfjord are outliers in Atlantic 
+eigenvec %&gt;% filter(PC1 &gt; 0 &amp; Area == "Atlantic") %&gt;% select(ID1)
+```
+
+```
+## # A tibble: 4 x 1
+##   ID1                     
+##   &lt;chr&gt;                   
+## 1 HWS61_Balsfjord_Atlantic
+## 2 HWS62_Balsfjord_Atlantic
+## 3 HWS63_Balsfjord_Atlantic
+## 4 HWS64_Balsfjord_Atlantic
+```
+
+
 
 ---
 
