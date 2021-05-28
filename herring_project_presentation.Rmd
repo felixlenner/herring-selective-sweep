@@ -53,6 +53,8 @@ knitr::knit_hooks$set(source = function(x, options) {
 ```{r init, include=F, echo=F, message=F}
 # Check you're in the right directory, change include to TRUE to output
 # getwd()
+
+# slack test 
 ```
 
 
