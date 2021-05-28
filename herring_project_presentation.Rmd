@@ -53,8 +53,6 @@ knitr::knit_hooks$set(source = function(x, options) {
 ```{r init, include=F, echo=F, message=F}
 # Check you're in the right directory, change include to TRUE to output
 # getwd()
-
-# slack test 
 ```
 
 
@@ -122,7 +120,7 @@ areas <- c("Atlantic", "Baltic", "SeaofJapan", "BarentsSea", "WhiteSea", "Pacifi
 
 # extract strings from ID1, if it matches any of the ares, put corresponding value in area
 eigenvec <- eigenvec %>% 
-  mutate(Area = str_extract(ID1, paste(areas, collapse = "|")))
+  mutate(Area = str_extract(ID1, paste(areas, collapse = "|"))) #<<
 ```
 ---
 # Calculate variance and create label (double-skip?)
@@ -313,8 +311,7 @@ Mention here the delta-freq peak
 
 ---
 # Annotation
-
-```{bash bcftools-ann, eval=F, echo=F}
+```{bash bcftools-ann, eval=F, echo=T}
 # To get the annotations from the VCF-file
 bcftools query -f "%POS\t%ANN\n" chr4.vcf > output.txt
 ```
@@ -351,22 +348,27 @@ annotate_positions <- function(input_df, annotation_df) {
 ```
 
 ```{r read-annotations-filter-positions, comment='#', eval=T, message=F}
-# you could also use read_delim, but its (~9x) slower in this case
+# Reads the annotation file really really fast 
 library(vroom) 
 
 annotation <- vroom(annotations_path, delim = "\t", col_names = c("POS", "ANN"))
 
-# Filter on frequency (and pos) takes to long time to annotate all positions and we don't need to 
-significant_positions <- delta_allele_freq %>% 
-  filter(between(POS, 0.9e7, 1.3e7)) %>% #<<
-  filter(FREQ > 0.6) #<<
-
-# Remove SNPs with high missingess by only keeping those that are in positions_to_keep
-# Before running the annotate_positions functions
-annotated_positions <- significant_positions %>%
-  filter(POS %in% positions_to_keep$POS) %>%
-  annotate_positions(annotation) #<< 
+# Annotate delta frequencies
+annotated_positions <- delta_allele_freq %>% 
+  # In the approximate region
+  filter(between(POS, 0.9e7, 1.3e7)) %>% #<< 
+  # With a high delta freq
+  filter(FREQ > 0.6) %>% #<<   
+  # Keep only SNPs with good data
+  filter(POS %in% positions_to_keep$POS) %>% 
+  # Run the annotation function
+  annotate_positions(annotation) #<<         
 ```
+
+???
+
+I could take the annotations parts maybe? (and more if needed)
+
 ---
 # annotate_positions()
 .tiny[
@@ -378,25 +380,31 @@ annotate_positions <- function(input_df, annotation_df) {
     filter(POS %in% input_df$POS)
   
   # This info can be found in the VCF file 
-  snpEff_column_names <- c("Allele","Annotation","Annotation_Impact","Gene_Name","Gene_ID","Feature_Type","Feature_ID","Transcript_BioType","Rank","HGVS.c","HGVS.p","cDNA.pos / cDNA.length","CDS.pos / CDS.length","AA.pos / AA.length","Distance","ERRORS / WARNINGS / INFO")   
+  snpEff_column_names <- c("Allele","Annotation","Annotation_Impact","Gene_Name","Gene_ID",
+                           "Feature_Type","Feature_ID","Transcript_BioType","Rank",
+                           "HGVS.c","HGVS.p","cDNA.pos / cDNA.length","CDS.pos / CDS.length",
+                           "AA.pos / AA.length","Distance","ERRORS / WARNINGS / INFO")   
   
   untangled_annotations <- filtered_annotations %>%
     mutate(ANN = str_split(ANN, ",")) %>%         # Split the ANN column into a list of annotations
     unnest(ANN) %>%                               # create rows for each position - annotation pair
     group_by(POS) %>%                             # group by position
-    mutate(Annotation_ID = seq_along(POS), 
-           .after = POS) %>%                      # assign a number to each annotation
+    mutate(Annotation_ID = seq_along(POS), .after = POS) %>% # assign a number to each annotation
     ungroup() %>%                                 # ungroup the values again 
     separate(ANN, into = snpEff_column_names,     # separate the ANN column
              sep = "\\|")                         # into columns based on SnpEff information
   
-  # join annotations to input df by position
-  output_df <- inner_join(input_df, untangled_annotations, by = "POS")  
+  output_df <- inner_join(input_df, untangled_annotations, by = "POS") # add annotations to input dataframe 
   
   return(output_df)
 }
 ```
 ]
+
+???
+
+I could take the annotations parts maybe? (and more if needed)
+
 ---
 # Even more annotation
 .nowrap.tiny[
@@ -413,10 +421,15 @@ annotated_positions %>% group_by(Gene_ID) %>%
   select(Gene_ID, POS = mean.POS, FREQ = mean.FREQ)
 ```
 ]
+
+???
+
+I could take the annotations parts maybe? (and more if needed)
+
 ---
 # biomaRt
 .tiny[
-```{r biomart, comment='#', message=F}
+```{r biomart, comment='#', message=F, warning=F}
 # A bug in biomaRt overwrites dplyr::select, workaround is to unload dplyr, then load it _after_ biomaRt
 detach("package:dplyr")
 library(biomaRt)
@@ -425,49 +438,53 @@ library(dplyr)
 # connect to the herring database
 ensembl = useMart("ensembl",dataset="charengus_gene_ensembl")
 
-zfin_ids <- annotated_positions %>%               # Take our annotated positions
-  filter(Feature_Type == "transcript" &           # Filter for transcripts
-           Annotation != "intron_variant") %>%    # Remove intron_variants
-  group_by(Gene_ID) %>%                           # Group by Gene_IDs
-  select(POS, FREQ, Gene_ID, ID) %>%                  # Select column we keep from annotation
-  summarize(mean.pos = mean(POS), mean.freq = mean(FREQ), Gene_ID, ID) %>% # Summarize like code above
-  unique() %>%                                                         # But keep only uniques
-  mutate(getBM(attributes=c('ensembl_gene_id', 'zfin_id_symbol'),      # New columns from ensambl
-               filters = 'ensembl_gene_id',                            # where the ensembl_gene_id
-               values = Gene_ID,                                       # equals the Gene_ID
-               mart = ensembl,                                         # chose mart/database
-               uniqueRows = F)) %>%                                    # give us everything
+zfin_ids <- annotated_positions %>%            # Take our annotated positions
+  filter(Feature_Type == "transcript" &        # Filter for transcripts
+           Annotation != "intron_variant") %>% # Remove intron_variants
+  group_by(Gene_ID) %>%                        # Group by Gene_IDs
+  select(POS, FREQ, Gene_ID, ID) %>%           # Select column we keep from annotation
+  summarize(mean.pos = mean(POS),              # Summarize like code above
+            mean.freq = mean(FREQ), Gene_ID, ID) %>% 
+  unique() %>%                                 # But keep only uniques
+  mutate(getBM(attributes = c('ensembl_gene_id', 'zfin_id_symbol'), # New columns from ensambl
+               filters = 'ensembl_gene_id',    # where the ensembl_gene_id
+               values = Gene_ID,               # equals the Gene_ID
+               mart = ensembl,                 # chose mart/database
+               uniqueRows = F)) %>%            # give us everything
   mutate(zfin_id_symbol = ifelse(zfin_id_symbol == "", NA, zfin_id_symbol)) %>% # change "" to NA
-  na.omit() %>% # if we want to filter only those genes which has zfin_ids
-  select(-ensembl_gene_id)
+  na.omit() %>%                               # keep genes with zfin_id's
+  select(-ensembl_gene_id)                    # remove duplicate column
 ```
 ]
+
+???
+
+I could take the annotations parts maybe? (and more if needed)
+
 ---
 # biomaRt
 ```{r zfin-output}
 zfin_ids
 ```
+
+???
+
+I could take the annotations parts maybe? (and more if needed)
+
 ---
 ```{r combine-data, echo=F}
-# Combine data - Commented out combining all of the data 
 combined_data <- rbind(atlantic_allele_freq, 
                        atlantic_het_freq2, 
                        baltic_allele_freq, 
                        baltic_het_freq2, 
                        delta_allele_freq,
                        delta_het_freq)
-# Combine only the heterozygosity
-#combined_data <- rbind(atlantic_het_freq2, baltic_het_freq2, delta_het_freq)
-
-# Filter out data
-combined_data <- combined_data %>% filter(POS %in% positions_to_keep$POS)
 ```
 # Summary of the results (change plots? two slides?)
 .pull-left[
 ```{r plot-delta-zfin, eval=T, echo=FALSE, warnings=F, message=F, fig.height=10}
-temp <- zfin_ids %>% mutate(ID = "Delta Allele Freq")
-
 library(ggrepel)
+
 combined_data %>%
   filter(POS %in% positions_to_keep$POS) %>%
   filter(ID == "Delta Allele Freq" | ID == "Baltic Obs Het Freq") %>%
@@ -480,14 +497,15 @@ combined_data %>%
                   aes(x = mean.pos/1e6, y = mean.freq, label = zfin_id_symbol), 
                   max.overlaps = Inf, 
                   min.segment.length = 0.5,
-                  segment.size = 0.3,
-                  box.padding = .2,
+                  segment.size = 1,
+                  box.padding = .1,
                   na.rm = T
                   #segment.color = "red",
                   #arrow = arrow(length = unit(0.07, "inches"), type = "open")
                   ) +# theme(legend.position = "none") + 
   ylab("Delta Allele Freq") + 
-  xlab("Chromosome 4 (Mb)") + facet_wrap(~ID, ncol = 1)
+  xlab("Chromosome 4 (Mb)") + 
+  facet_wrap(~ID, ncol = 1)
   
 ```
 ]
@@ -498,6 +516,11 @@ annotated_positions %>%
   unique()
 ```
 ]
+
+???
+
+This as well (if needed)
+
 ---
 
 # Conclusion
