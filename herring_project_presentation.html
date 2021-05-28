@@ -34,17 +34,14 @@ pre {
 
 
 
-```r
-# Check you're in the right directory
-getwd()
-```
-
 ```
 ## [1] "/Users/felix/Documents/MedicalResearchMaster/Bioinformatics/project/notebook-test/herring_project_presentation/herring-selective-sweep-presentation"
 ```
 
 
 # Introduction/Background 
+
+- Heyy
 
 - The Baltic Sea was formed approximately 15,000 years ago, and following its creation the Atlantic herring migrated into the new habitat causing a bottleneck of their gene pool and forming a population that would become the subspecies Baltic herring. 
 - This caused a selective sweep in the new population.
@@ -77,20 +74,23 @@ getwd()
 
 # Check population structure 
 
-1. Extract chromosome 4 (skip?)
+1. Extract chromosome 4
+
 
 ```bash
 vcftools --gzvcf data/Ch_v2.0.2_79_ind_snpEff.vcf.gz 
 --chr chr4 --recode --out data/chr4
 ```
+
 1. Principal component analysis with PLINK
+
 
 ```bash
 plink --vcf data/Ch_v2.0.2_79_ind_snpEff_chr4.vcf 
 --double-id  --pca tabs --out data/chr4_pca
 ```
 ---
-# Prepare PCA/Read files (skip?)
+# Read the files into R (skip?)
 
 ```r
 library(tidyverse)
@@ -111,7 +111,7 @@ eigenvec &lt;- eigenvec %&gt;%
   mutate(Area = str_extract(ID1, paste(areas, collapse = "|")))
 ```
 ---
-# Prepare PCA/Read files (double-skip?)
+# Calculate variance and create label (double-skip?)
 
 ```r
 variance_label &lt;- function(pc, var_vector) {
@@ -126,7 +126,7 @@ variance_label &lt;- function(pc, var_vector) {
 }
 ```
 ---
-# PCA plot (keep plot, skip code? add more code?)
+# PCA Plot
 
 ```r
 ggplot(eigenvec, aes(x = PC1, y = PC2, color = Area)) + 
@@ -137,7 +137,7 @@ ggplot(eigenvec, aes(x = PC1, y = PC2, color = Area)) +
 
 ![](herring_project_presentation_files/figure-html/unnamed-chunk-5-1.png)&lt;!-- --&gt;
 ---
-# Balsfjord are outliers (nice to keep?)
+# Balsfjord herring are outliers in the Atlantic area
 
 ```r
 # Filter the PCA data for the atlantic outliers 
@@ -154,8 +154,7 @@ eigenvec %&gt;% filter(PC1 &gt; 0 &amp; Area == "Atlantic") %&gt;% select(ID1)
 # 4 HWS64_Balsfjord_Atlantic
 ```
 ---
-# Bash stuff (skip?)
-(skip this part below...?)
+# Bash stuff (skip? keep --freq2 command?)
 
 ```bash
 # Get sample names
@@ -172,7 +171,7 @@ vcftools --vcf data/chr4_atlantic.recode.vcf --freq2 --out chr4_atlantic
 vcftools --vcf data/chr4_baltic.recode.vcf --freq2 --out chr4_baltic
 ```
 ---
-# Allele frequencies (skip this?)
+# Read Allele frequencies into R (skip?)
 
 
 ```r
@@ -196,7 +195,7 @@ baltic_allele_freq &lt;- baltic_raw_allele_freq %&gt;%
   mutate(ID = "Baltic Alt Allele Freq")
 ```
 ---
-# Allele frequencies 
+# Calculate delta and window-size (skip windows?)
 
 
 ```r
@@ -210,7 +209,6 @@ delta_allele_freq &lt;- delta_allele_freq %&gt;%
     ID = "Delta Allele Freq")
 ```
 
-(skip below?)
 
 ```r
 #Combine and set a window size (skip?)
@@ -226,7 +224,7 @@ break_size &lt;- function(positions, window_size) {
 ```
 
 ---
-# Plot allele frequencies
+# Plot allele frequencies (all or just delta?)
 
 ```r
 combined_allele_freq %&gt;%
@@ -241,6 +239,12 @@ combined_allele_freq %&gt;%
 ---
 # Heterozygosity (skip/keep?)
 .tiny[
+
+```bash
+vctools --vcf chr4_atlantic.vcf --keep data/atlantic_samples.txt --hardy --out chr4_atlantic_het
+vctools --vcf chr4_atlantic.vcf --keep data/atlantic_samples.txt --hardy --out chr4_atlantic_het
+```
+
 
 ```r
 # Load heterozygosity 
@@ -274,7 +278,7 @@ atlantic_baltic_het_freq &lt;- rbind(atlantic_het_freq, baltic_het_freq)
 ```
 ]
 ---
-# Missingness plot (would be good to keep I think)
+# Missing observations 
 
 ```r
 atlantic_baltic_het_freq %&gt;%
@@ -303,7 +307,7 @@ positions_to_keep &lt;- inner_join(atlantic_het_freq, baltic_het_freq, by = "POS
 
 
 ---
-# Show here how the plots looked like after removing bad SNPs - only delta?
+# after removing bad SNPs (only delta?)
 
 ```r
 combined_allele_freq %&gt;%
@@ -322,14 +326,33 @@ combined_allele_freq %&gt;%
 Mention here the delta-freq peak
 
 ---
-# Annotation code stuff (maybe not super relevant?)
-.tiny[
+# Annotation
 
-```bash
-# To get the annotations from the VCF-file
-bcftools query -f "%POS\t%ANN\n" chr4.vcf &gt; output.txt
+
+
+
+
+
+```r
+# you could also use read_delim, but its (~9x) slower in this case
+library(vroom) 
+
+annotation &lt;- vroom(annotations_path, delim = "\t", col_names = c("POS", "ANN"))
+
+# Filter on frequency (and pos) takes to long time to annotate all positions and we don't need to 
+significant_positions &lt;- delta_allele_freq %&gt;% 
+* filter(between(POS, 0.9e7, 1.3e7)) %&gt;%
+* filter(FREQ &gt; 0.6)
+
+# Remove SNPs with high missingess by only keeping those that are in positions_to_keep
+# Before running the annotate_positions functions
+annotated_positions &lt;- significant_positions %&gt;%
+  filter(POS %in% positions_to_keep$POS) %&gt;%
+* annotate_positions(annotation)
 ```
-
+---
+# annotate_positions()
+.tiny[
 
 ```r
 annotate_positions &lt;- function(input_df, annotation_df) {
@@ -358,26 +381,6 @@ annotate_positions &lt;- function(input_df, annotation_df) {
 }
 ```
 ]
----
-# More Annotation code (keep only filtering part?)
-
-```r
-# you could also use read_delim, but its (~9x) slower in this case
-library(vroom) 
-
-annotation &lt;- vroom(annotations_path, delim = "\t", col_names = c("POS", "ANN"))
-
-# Filter on frequency (and pos) takes to long time to annotate all positions and we don't need to 
-significant_positions &lt;- delta_allele_freq %&gt;% 
-* filter(between(POS, 0.9e7, 1.3e7)) %&gt;%
-* filter(FREQ &gt; 0.6)
-
-# Remove SNPs with high missingess by only keeping those that are in positions_to_keep
-# Before running the annotate_positions functions
-annotated_positions &lt;- significant_positions %&gt;%
-  filter(POS %in% positions_to_keep$POS) %&gt;%
-* annotate_positions(annotation)
-```
 ---
 # Even more annotation
 .nowrap.tiny[
@@ -481,7 +484,7 @@ zfin_ids
 ```
 ---
 
-# Summary of the results 
+# Summary of the results (change plots? two slides?)
 .pull-left[
 ![](herring_project_presentation_files/figure-html/plot-delta-zfin-1.png)&lt;!-- --&gt;
 ]

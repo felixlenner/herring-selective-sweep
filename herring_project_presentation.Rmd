@@ -24,7 +24,7 @@ pre {
 ```
 
 ```{r, setup, include=FALSE}
-# Set working directiry 
+# Set working directory
 knitr::opts_knit$set(root.dir = '~/project/notebook-test/herring_project_presentation/herring-selective-sweep-presentation/')
 
 # Set paths to files
@@ -50,13 +50,15 @@ knitr::knit_hooks$set(source = function(x, options) {
 })
 ```
 
-```{r init, echo=T}
-# Check you're in the right directory
+```{r init, echo=F}
+# Check you're in the right directory, change echo to TRUE to output
 getwd()
 ```
 
 
 # Introduction/Background 
+
+- Heyy
 
 - The Baltic Sea was formed approximately 15,000 years ago, and following its creation the Atlantic herring migrated into the new habitat causing a bottleneck of their gene pool and forming a population that would become the subspecies Baltic herring. 
 - This caused a selective sweep in the new population.
@@ -89,18 +91,21 @@ getwd()
 
 # Check population structure 
 
-1. Extract chromosome 4 (skip?)
+1. Extract chromosome 4
+
 ```{bash, eval=FALSE, echo=T}
 vcftools --gzvcf data/Ch_v2.0.2_79_ind_snpEff.vcf.gz 
 --chr chr4 --recode --out data/chr4
 ```
+
 1. Principal component analysis with PLINK
+
 ```{bash, eval=F, echo=T}
 plink --vcf data/Ch_v2.0.2_79_ind_snpEff_chr4.vcf 
 --double-id  --pca tabs --out data/chr4_pca
 ```
 ---
-# Prepare PCA/Read files (skip?)
+# Read the files into R (skip?)
 ```{r, message=FALSE, echo=TRUE}
 library(tidyverse)
 
@@ -120,7 +125,7 @@ eigenvec <- eigenvec %>%
   mutate(Area = str_extract(ID1, paste(areas, collapse = "|")))
 ```
 ---
-# Prepare PCA/Read files (double-skip?)
+# Calculate variance and create label (double-skip?)
 ```{r, variance-label, echo=T}
 variance_label <- function(pc, var_vector) {
   # keep PC number
@@ -134,7 +139,7 @@ variance_label <- function(pc, var_vector) {
 }
 ```
 ---
-# PCA plot (keep plot, skip code? add more code?)
+# PCA Plot
 ```{r, fig.height=4, dev='png', echo=T}
 ggplot(eigenvec, aes(x = PC1, y = PC2, color = Area)) + 
   geom_point() +
@@ -142,14 +147,13 @@ ggplot(eigenvec, aes(x = PC1, y = PC2, color = Area)) +
   ylab(variance_label("PC2", eigenval))
 ```
 ---
-# Balsfjord are outliers (nice to keep?)
+# Balsfjord herring are outliers in the Atlantic area
 ```{r, comment='#', list-outliers}
 # Filter the PCA data for the atlantic outliers 
 eigenvec %>% filter(PC1 > 0 & Area == "Atlantic") %>% select(ID1)
 ```
 ---
-# Bash stuff (skip?)
-(skip this part below...?)
+# Bash stuff (skip? keep --freq2 command?)
 ```{bash, comment='#', eval=F, echo=T}
 # Get sample names
 bcftools query -l chr4.recode.vcf | grep "Baltic" > baltic_samples.txt
@@ -165,7 +169,7 @@ vcftools --vcf data/chr4_atlantic.recode.vcf --freq2 --out chr4_atlantic
 vcftools --vcf data/chr4_baltic.recode.vcf --freq2 --out chr4_baltic
 ```
 ---
-# Allele frequencies (skip this?)
+# Read Allele frequencies into R (skip?)
 
 ```{r, comment='#', load-allele-frequencies}
 allele_column_names = c("CHROM", "POS", "N_ALLELES", "N_CHR", "A1_FREQ", "A2_FREQ")
@@ -187,7 +191,7 @@ baltic_allele_freq <- baltic_raw_allele_freq %>%
   mutate(ID = "Baltic Alt Allele Freq")
 ```
 ---
-# Allele frequencies 
+# Calculate delta and window-size (skip windows?)
 
 ```{r delta-allele-frequencies, comment='#'}
 delta_allele_freq <- atlantic_allele_freq %>% select(POS)
@@ -200,7 +204,6 @@ delta_allele_freq <- delta_allele_freq %>%
     ID = "Delta Allele Freq")
 ```
 
-(skip below?)
 ```{r combine-and-break-size, comment='#'}
 #Combine and set a window size (skip?)
 combined_allele_freq <- rbind(atlantic_allele_freq, 
@@ -215,7 +218,7 @@ break_size <- function(positions, window_size) {
 ```
 
 ---
-# Plot allele frequencies
+# Plot allele frequencies (all or just delta?)
 ```{r, message=FALSE, warning=FALSE,fig.width=14,fig.height=5, dev='png'}
 combined_allele_freq %>%
   group_by(gr = cut(POS, break_size(POS, window_size)), ID) %>% #<<
@@ -227,6 +230,11 @@ combined_allele_freq %>%
 ---
 # Heterozygosity (skip/keep?)
 .tiny[
+```{bash, calculate-het, eval=F}
+vctools --vcf chr4_atlantic.vcf --keep data/atlantic_samples.txt --hardy --out chr4_atlantic_het
+vctools --vcf chr4_atlantic.vcf --keep data/atlantic_samples.txt --hardy --out chr4_atlantic_het
+```
+
 ```{r, eval = T, message=F, warning=F, echo=T}
 # Load heterozygosity 
 atlantic_raw_het_freq <- read_tsv(atlantic_het_path)
@@ -259,7 +267,7 @@ atlantic_baltic_het_freq <- rbind(atlantic_het_freq, baltic_het_freq)
 ```
 ]
 ---
-# Missingness plot (would be good to keep I think)
+# Missing observations 
 ```{r, missingness-plot, message=F, fig.height=4, dev='png'}
 atlantic_baltic_het_freq %>%
   group_by(gr = cut(POS, break_size(POS, 1e5)), ID) %>%
@@ -288,7 +296,7 @@ atlantic_het_freq2 <- atlantic_het_freq %>% select(POS, FREQ, ID)
 baltic_het_freq2 <- baltic_het_freq %>% select(POS, FREQ, ID)
 ```
 ---
-# Show here how the plots looked like after removing bad SNPs - only delta?
+# after removing bad SNPs (only delta?)
 ```{r, message=FALSE, warning=FALSE,fig.width=14,fig.height=5, dev='png'}
 combined_allele_freq %>%
   filter(POS %in% positions_to_keep$POS) %>% #<<
@@ -304,13 +312,64 @@ combined_allele_freq %>%
 Mention here the delta-freq peak
 
 ---
-# Annotation code stuff (maybe not super relevant?)
-.tiny[
-```{bash bcftools-ann, eval=F}
+# Annotation
+
+```{bash bcftools-ann, eval=F, echo=F}
 # To get the annotations from the VCF-file
 bcftools query -f "%POS\t%ANN\n" chr4.vcf > output.txt
 ```
 
+```{r,comment='#', eval=T, echo=F}
+
+# The function has to be here for the code to be able to run,
+# But we don't want to display it, so I added a second code block,
+# Displaying the code on the next slide
+annotate_positions <- function(input_df, annotation_df) {
+  
+  # Filter positions which should be annotated 
+  filtered_annotations <- annotation_df %>%   
+    filter(POS %in% input_df$POS)
+  
+  # This info can be found in the VCF file 
+  snpEff_column_names <- c("Allele","Annotation","Annotation_Impact","Gene_Name","Gene_ID","Feature_Type","Feature_ID","Transcript_BioType","Rank","HGVS.c","HGVS.p","cDNA.pos / cDNA.length","CDS.pos / CDS.length","AA.pos / AA.length","Distance","ERRORS / WARNINGS / INFO")   
+  
+  untangled_annotations <- filtered_annotations %>%
+    mutate(ANN = str_split(ANN, ",")) %>%         # Split the ANN column into a list of annotations
+    unnest(ANN) %>%                               # create rows for each position - annotation pair
+    group_by(POS) %>%                             # group by position
+    mutate(Annotation_ID = seq_along(POS), 
+           .after = POS) %>%                      # assign a number to each annotation
+    ungroup() %>%                                 # ungroup the values again 
+    separate(ANN, into = snpEff_column_names,     # separate the ANN column
+             sep = "\\|")                         # into columns based on SnpEff information
+  
+  # join annotations to input df by position
+  output_df <- inner_join(input_df, untangled_annotations, by = "POS")  
+  
+  return(output_df)
+}
+```
+
+```{r read-annotations-filter-positions, comment='#', eval=T, message=F}
+# you could also use read_delim, but its (~9x) slower in this case
+library(vroom) 
+
+annotation <- vroom(annotations_path, delim = "\t", col_names = c("POS", "ANN"))
+
+# Filter on frequency (and pos) takes to long time to annotate all positions and we don't need to 
+significant_positions <- delta_allele_freq %>% 
+  filter(between(POS, 0.9e7, 1.3e7)) %>% #<<
+  filter(FREQ > 0.6) #<<
+
+# Remove SNPs with high missingess by only keeping those that are in positions_to_keep
+# Before running the annotate_positions functions
+annotated_positions <- significant_positions %>%
+  filter(POS %in% positions_to_keep$POS) %>%
+  annotate_positions(annotation) #<< 
+```
+---
+# annotate_positions()
+.tiny[
 ```{r,comment='#', eval = T, message=F}
 annotate_positions <- function(input_df, annotation_df) {
   
@@ -338,25 +397,6 @@ annotate_positions <- function(input_df, annotation_df) {
 }
 ```
 ]
----
-# More Annotation code (keep only filtering part?)
-```{r read-annotations-filter-positions, comment='#', eval=T, message=F}
-# you could also use read_delim, but its (~9x) slower in this case
-library(vroom) 
-
-annotation <- vroom(annotations_path, delim = "\t", col_names = c("POS", "ANN"))
-
-# Filter on frequency (and pos) takes to long time to annotate all positions and we don't need to 
-significant_positions <- delta_allele_freq %>% 
-  filter(between(POS, 0.9e7, 1.3e7)) %>% #<<
-  filter(FREQ > 0.6) #<<
-
-# Remove SNPs with high missingess by only keeping those that are in positions_to_keep
-# Before running the annotate_positions functions
-annotated_positions <- significant_positions %>%
-  filter(POS %in% positions_to_keep$POS) %>%
-  annotate_positions(annotation) #<< 
-```
 ---
 # Even more annotation
 .nowrap.tiny[
@@ -422,7 +462,7 @@ combined_data <- rbind(atlantic_allele_freq,
 # Filter out data
 combined_data <- combined_data %>% filter(POS %in% positions_to_keep$POS)
 ```
-# Summary of the results 
+# Summary of the results (change plots? two slides?)
 .pull-left[
 ```{r plot-delta-zfin, eval=T, echo=FALSE, warnings=F, message=F, fig.height=10}
 temp <- zfin_ids %>% mutate(ID = "Delta Allele Freq")
