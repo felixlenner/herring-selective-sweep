@@ -24,8 +24,10 @@ pre {
 ```
 
 ```{r, setup, include=FALSE}
+# Set working directiry 
 knitr::opts_knit$set(root.dir = '~/project/notebook-test/herring_project_presentation/herring-selective-sweep-presentation/')
 
+# Set paths to files
 eigenvec_path = 'data/chr4_pca.eigenvec'
 eigenval_path = 'data/chr4_pca.eigenval'
 
@@ -37,8 +39,10 @@ baltic_het_path = 'data/chr4_baltic.hwe'
 
 annotations_path = 'data/original_already_annotated.txt'
 
-knitr::opts_chunk$set(cache = TRUE)
+# Set cache TRUE or FALSE 
+knitr::opts_chunk$set(cache = FALSE)
 
+# Don't change
 hook_source <- knitr::knit_hooks$get('source')
 knitr::knit_hooks$set(source = function(x, options) {
   x <- stringr::str_replace(x, "^[[:blank:]]?([^*].+?)[[:blank:]]*#<<[[:blank:]]*$", "*\\1")
@@ -47,8 +51,8 @@ knitr::knit_hooks$set(source = function(x, options) {
 ```
 
 ```{r init, echo=T}
-
-
+# Check you're in the right directory
+getwd()
 ```
 
 
