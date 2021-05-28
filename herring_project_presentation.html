@@ -35,23 +35,21 @@ pre {
 
 
 
+
 # Introduction/Background 
 
-- The Baltic Sea was formed approximately 15,000 years ago, during its creation Atlantic herring migrated into the new habitat causing a bottleneck of their gene pool and forming a population that would become the subspecies Baltic herring.
-- This caused a selective sweep in the new population
+- The Baltic Sea was formed approximately 15,000 years ago, and following its creation the Atlantic herring migrated into the new habitat causing a bottleneck of their gene pool and forming a population that would become the subspecies Baltic herring. 
+- This caused a selective sweep in the new population.
 
 - Selective Sweep = The process of a beneficial mutation increasing in frequency and becoming fixed, resulting in less genetic variation in the genome around the mutation.
 
-- the fishes maybe
+- the fishes maybe ...
 
 - Selective sweeps can be identified by
 
+- Aim: Locate the peaks and extents of selective sweeps occurring the chromosome 4 of the baltic herring genome
+
 - "A brief introduction to the project (What is it about? What is the purpose of the project?"
----
-# Aim
-
-Locate the peaks and extents of selective sweeps occurring the chromosome 4 of the baltic herring genome
-
 ---
 
 # Methods Overview
@@ -89,8 +87,8 @@ plink --vcf data/Ch_v2.0.2_79_ind_snpEff_chr4.vcf
 library(tidyverse)
 
 # Read files
-eigenvec &lt;- read_tsv("data/chr4_pca.eigenvec", col_names = F)
-eigenval &lt;- scan("data/chr4_pca.eigenval") 
+eigenvec &lt;- read_tsv(file = eigenvec_path, col_names = F)
+eigenval &lt;- scan(file = eigenval_path) 
 
 # Set eigenvec column names
 colnames(eigenvec) &lt;- c("ID1", "ID2", 
@@ -171,11 +169,10 @@ vcftools --vcf data/chr4_baltic.recode.vcf --freq2 --out chr4_baltic
 ```r
 allele_column_names = c("CHROM", "POS", "N_ALLELES", "N_CHR", "A1_FREQ", "A2_FREQ")
 allele_column_types = "cddddd"
-
 #Load samples 
-atlantic_raw_allele_freq &lt;- read_tsv("data/chr4_atlantic.frq", skip = 1, col_names = allele_column_names, col_types = allele_column_types)
+atlantic_raw_allele_freq &lt;- read_tsv(file = atlantic_freq_path, skip = 1, col_names = allele_column_names, col_types = allele_column_types)
 
-baltic_raw_allele_freq &lt;- read_tsv("data/chr4_baltic.frq", skip = 1, col_names = allele_column_names, col_types = allele_column_types)
+baltic_raw_allele_freq &lt;- read_tsv(file = baltic_freq_path, skip = 1, col_names = allele_column_names, col_types = allele_column_types)
 ```
 
 
@@ -238,8 +235,8 @@ combined_allele_freq %&gt;%
 
 ```r
 # Load heterozygosity 
-atlantic_raw_het_freq &lt;- read_tsv("data/chr4_atlantic.hwe")
-baltic_raw_het_freq &lt;- read_tsv("data/chr4_baltic.hwe")
+atlantic_raw_het_freq &lt;- read_tsv(atlantic_het_path)
+baltic_raw_het_freq &lt;- read_tsv(baltic_het_path)
 
 # Separate `OBS(HOM1/HET/HOM2)` column, calculate frequency and select important
 atlantic_het_freq &lt;- atlantic_raw_het_freq %&gt;% 
@@ -359,7 +356,7 @@ annotate_positions &lt;- function(input_df, annotation_df) {
 # you could also use read_delim, but its (~9x) slower in this case
 library(vroom) 
 
-annotation &lt;- vroom("data/original_already_annotated.txt", delim = "\t", col_names = c("POS", "ANN"))
+annotation &lt;- vroom(annotations_path, delim = "\t", col_names = c("POS", "ANN"))
 
 # Filter on frequency (and pos) takes to long time to annotate all positions and we don't need to 
 significant_positions &lt;- delta_allele_freq %&gt;% 
@@ -382,16 +379,18 @@ annotated_positions %&gt;% print(n = 5)
 
 ```
 ## # A tibble: 122 x 20
-##      POS  FREQ ID    Annotation_ID Allele Annotation Annotation_Impa… Gene_Name Gene_ID Feature_Type Feature_ID
-##    &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;         &lt;int&gt; &lt;chr&gt;  &lt;chr&gt;      &lt;chr&gt;            &lt;chr&gt;     &lt;chr&gt;   &lt;chr&gt;        &lt;chr&gt;     
-## 1 1.11e7 0.629 Delt…             1 A      intron_va… MODIFIER         ENSCHAG0… ENSCHA… transcript   ENSCHAT00…
-## 2 1.11e7 0.629 Delt…             2 A      intron_va… MODIFIER         ENSCHAG0… ENSCHA… transcript   ENSCHAT00…
-## 3 1.11e7 0.629 Delt…             3 A      intron_va… MODIFIER         ENSCHAG0… ENSCHA… transcript   ENSCHAT00…
-## 4 1.11e7 0.629 Delt…             4 A      intron_va… MODIFIER         ENSCHAG0… ENSCHA… transcript   ENSCHAT00…
-## 5 1.11e7 0.629 Delt…             5 A      intron_va… MODIFIER         ENSCHAG0… ENSCHA… transcript   ENSCHAT00…
-## # … with 117 more rows, and 9 more variables: Transcript_BioType &lt;chr&gt;, Rank &lt;chr&gt;, HGVS.c &lt;chr&gt;,
-## #   HGVS.p &lt;chr&gt;, cDNA.pos / cDNA.length &lt;chr&gt;, CDS.pos / CDS.length &lt;chr&gt;, AA.pos / AA.length &lt;chr&gt;,
-## #   Distance &lt;chr&gt;, ERRORS / WARNINGS / INFO &lt;chr&gt;
+##       POS  FREQ ID    Annotation_ID Allele Annotation Annotation_Impa… Gene_Name
+##     &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;         &lt;int&gt; &lt;chr&gt;  &lt;chr&gt;      &lt;chr&gt;            &lt;chr&gt;    
+## 1  1.11e7 0.629 Delt…             1 A      intron_va… MODIFIER         ENSCHAG0…
+## 2  1.11e7 0.629 Delt…             2 A      intron_va… MODIFIER         ENSCHAG0…
+## 3  1.11e7 0.629 Delt…             3 A      intron_va… MODIFIER         ENSCHAG0…
+## 4  1.11e7 0.629 Delt…             4 A      intron_va… MODIFIER         ENSCHAG0…
+## 5  1.11e7 0.629 Delt…             5 A      intron_va… MODIFIER         ENSCHAG0…
+## # … with 117 more rows, and 12 more variables: Gene_ID &lt;chr&gt;,
+## #   Feature_Type &lt;chr&gt;, Feature_ID &lt;chr&gt;, Transcript_BioType &lt;chr&gt;, Rank &lt;chr&gt;,
+## #   HGVS.c &lt;chr&gt;, HGVS.p &lt;chr&gt;, cDNA.pos / cDNA.length &lt;chr&gt;,
+## #   CDS.pos / CDS.length &lt;chr&gt;, AA.pos / AA.length &lt;chr&gt;, Distance &lt;chr&gt;,
+## #   ERRORS / WARNINGS / INFO &lt;chr&gt;
 ```
 ]
 .tiny[
@@ -425,6 +424,13 @@ annotated_positions %&gt;% group_by(Gene_ID) %&gt;%
 # A bug in biomaRt overwrites dplyr::select, workaround is to unload dplyr, then load it _after_ biomaRt
 detach("package:dplyr")
 library(biomaRt)
+```
+
+```
+# Warning: package 'biomaRt' was built under R version 4.0.3
+```
+
+```r
 library(dplyr)
 
 # connect to the herring database
@@ -455,17 +461,14 @@ zfin_ids
 ```
 
 ```
-## # A tibble: 7 x 4
-## # Groups:   Gene_ID [7]
-##   Gene_ID             mean.pos mean.freq zfin_id_symbol
-##   &lt;chr&gt;                  &lt;dbl&gt;     &lt;dbl&gt; &lt;chr&gt;         
-## 1 ENSCHAG00000025774 11179139      0.614 magi1a        
-## 2 ENSCHAG00000025873 11220842.     0.627 rho           
-## 3 ENSCHAG00000025879 11326441      0.643 &lt;NA&gt;          
-## 4 ENSCHAG00000025886 11329217.     0.643 &lt;NA&gt;          
-## 5 ENSCHAG00000025895 11352886.     0.636 &lt;NA&gt;          
-## 6 ENSCHAG00000026024 11383125      0.671 qars1         
-## 7 ENSCHAG00000026767 11383125      0.671 espn
+## # A tibble: 4 x 5
+## # Groups:   Gene_ID [4]
+##   Gene_ID             mean.pos mean.freq ID                zfin_id_symbol
+##   &lt;chr&gt;                  &lt;dbl&gt;     &lt;dbl&gt; &lt;chr&gt;             &lt;chr&gt;         
+## 1 ENSCHAG00000025774 11179139      0.614 Delta Allele Freq magi1a        
+## 2 ENSCHAG00000025873 11220842.     0.627 Delta Allele Freq rho           
+## 3 ENSCHAG00000026024 11383125      0.671 Delta Allele Freq qars1         
+## 4 ENSCHAG00000026767 11383125      0.671 Delta Allele Freq espn
 ```
 ---
 
