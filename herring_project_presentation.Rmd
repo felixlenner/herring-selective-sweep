@@ -50,15 +50,13 @@ knitr::knit_hooks$set(source = function(x, options) {
 })
 ```
 
-```{r init, echo=F}
-# Check you're in the right directory, change echo to TRUE to output
+```{r init, include=F}
+# Check you're in the right directory, change include to TRUE to output
 getwd()
 ```
 
 
 # Introduction/Background 
-
-- Heyy
 
 - The Baltic Sea was formed approximately 15,000 years ago, and following its creation the Atlantic herring migrated into the new habitat causing a bottleneck of their gene pool and forming a population that would become the subspecies Baltic herring. 
 - This caused a selective sweep in the new population.
