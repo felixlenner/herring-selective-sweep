@@ -39,6 +39,11 @@ baltic_het_path = 'data/chr4_baltic.hwe'
 
 annotations_path = 'data/original_already_annotated.txt'
 
+library(biomaRt)
+library(tidyverse)
+library(vroom)
+library(ggrepel)
+
 # Set cache TRUE or FALSE 
 knitr::opts_chunk$set(cache = FALSE)
 
@@ -356,7 +361,7 @@ annotation <- vroom(annotations_path, delim = "\t", col_names = c("POS", "ANN"))
 # Annotate delta frequencies
 annotated_positions <- delta_allele_freq %>% 
   # In the approximate region
-  filter(between(POS, 0.9e7, 1.3e7)) %>% #<< 
+  filter(between(POS, 1e7, 1.3e7)) %>% #<< 
   # With a high delta freq
   filter(FREQ > 0.6) %>% #<<   
   # Keep only SNPs with good data
@@ -394,7 +399,8 @@ annotate_positions <- function(input_df, annotation_df) {
     separate(ANN, into = snpEff_column_names,     # separate the ANN column
              sep = "\\|")                         # into columns based on SnpEff information
   
-  output_df <- inner_join(input_df, untangled_annotations, by = "POS") # add annotations to input dataframe 
+  # Add annotations to input dataframe 
+  output_df <- inner_join(input_df, untangled_annotations, by = "POS") 
   
   return(output_df)
 }
@@ -416,9 +422,58 @@ annotated_positions %>% print(n = 5)
 ```{r}
 # Can then filter what we want
 annotated_positions %>% group_by(Gene_ID) %>%
-  filter(Feature_Type == "transcript") %>% 
-  summarize(mean.POS = as.integer(mean(POS)), mean.FREQ = mean(FREQ)) %>%
-  select(Gene_ID, POS = mean.POS, FREQ = mean.FREQ)
+  filter(Feature_Type == "transcript") %>%
+  select(Gene_ID, POS, FREQ) %>% unique() %>%
+  summarize(mean.POS = as.integer(mean(POS)), mean.FREQ = mean(FREQ)) %>% print(n = 5)
+```
+]
+
+???
+
+I could take the annotations parts maybe? (and more if needed)
+
+---
+```{r, fix-for-now, eval=T, echo=F}
+annotated_gene_names <- annotated_positions %>% group_by(Gene_ID) %>%                        # Group by Gene_ID
+  filter(Feature_Type == "transcript" &        # Filter for transcripts
+        Annotation != "intron_variant") %>%    # Remove intron_variants (remove "double-ids")
+  select(POS, FREQ, Gene_ID, ID) %>%           # Select columns to keep 
+  unique() %>%                                 # Don't let multiple transcripts affect the means
+  summarize(mean.pos = mean(POS),              # Summarize mean position and frequency
+            mean.freq = mean(FREQ), 
+            Gene_ID, ID) %>% 
+  unique()                    
+```
+
+# biomaRt
+.tiny[
+```{r biomart, eval=F, comment='#', message=F, warning=F, dependson="setup"}
+# A bug in biomaRt overwrites dplyr::select, workaround is to unload dplyr, then load it _after_ biomaRt
+#detach("package:dplyr")
+#library(biomaRt)
+#library(dplyr)
+
+# connect to the herring database
+ensembl = useMart("ensembl",dataset="charengus_gene_ensembl",host="https://useast.ensembl.org/")
+
+annotated_gene_names <- annotated_positions %>%            # Take our annotated positions
+  group_by(Gene_ID) %>%                        # Group by Gene_ID
+  filter(Feature_Type == "transcript" &        # Filter for transcripts
+        Annotation != "intron_variant") %>%    # Remove intron_variants (remove "double-ids")
+  select(POS, FREQ, Gene_ID, ID) %>%           # Select columns to keep 
+  unique() %>%                                 # Don't let multiple transcripts affect the means
+  summarize(mean.pos = mean(POS),              # Summarize mean position and frequency
+            mean.freq = mean(FREQ), 
+            Gene_ID, ID) %>% 
+  unique() %>%                                 # keep only unique rows
+  mutate(getBM(attributes = c('ensembl_gene_id', 'external_gene_name'), # New columns from ensambl
+               filters = 'ensembl_gene_id',    # where the ensembl_gene_id
+               values = Gene_ID,               # equals the Gene_ID
+               mart = ensembl,                 # chose mart/database
+               uniqueRows = F)) %>%            # give us everything
+  mutate(external_gene_name = ifelse(external_gene_name == "", NA, external_gene_name)) %>% # change "" to NA
+  #na.omit() %>%                                # keep only genes with zfin_id's
+  select(-ensembl_gene_id)                     # remove duplicate column
 ```
 ]
 
@@ -429,43 +484,12 @@ I could take the annotations parts maybe? (and more if needed)
 ---
 # biomaRt
 .tiny[
-```{r biomart, comment='#', message=F, warning=F}
-# A bug in biomaRt overwrites dplyr::select, workaround is to unload dplyr, then load it _after_ biomaRt
-detach("package:dplyr")
-library(biomaRt)
-library(dplyr)
-
-# connect to the herring database
-ensembl = useMart("ensembl",dataset="charengus_gene_ensembl")
-
-zfin_ids <- annotated_positions %>%            # Take our annotated positions
-  filter(Feature_Type == "transcript" &        # Filter for transcripts
-           Annotation != "intron_variant") %>% # Remove intron_variants
-  group_by(Gene_ID) %>%                        # Group by Gene_IDs
-  select(POS, FREQ, Gene_ID, ID) %>%           # Select column we keep from annotation
-  summarize(mean.pos = mean(POS),              # Summarize like code above
-            mean.freq = mean(FREQ), Gene_ID, ID) %>% 
-  unique() %>%                                 # But keep only uniques
-  mutate(getBM(attributes = c('ensembl_gene_id', 'zfin_id_symbol'), # New columns from ensambl
-               filters = 'ensembl_gene_id',    # where the ensembl_gene_id
-               values = Gene_ID,               # equals the Gene_ID
-               mart = ensembl,                 # chose mart/database
-               uniqueRows = F)) %>%            # give us everything
-  mutate(zfin_id_symbol = ifelse(zfin_id_symbol == "", NA, zfin_id_symbol)) %>% # change "" to NA
-  na.omit() %>%                               # keep genes with zfin_id's
-  select(-ensembl_gene_id)                    # remove duplicate column
+```{r zfin-output, eval=T}
+annotated_gene_names %>% 
+  #filter(external_gene_name != "NA") %>% 
+  arrange(-mean.freq)
 ```
 ]
-
-???
-
-I could take the annotations parts maybe? (and more if needed)
-
----
-# biomaRt
-```{r zfin-output}
-zfin_ids
-```
 
 ???
 
@@ -480,7 +504,7 @@ combined_data <- rbind(atlantic_allele_freq,
                        delta_allele_freq,
                        delta_het_freq)
 ```
-# Summary of the results (change plots? two slides?)
+# Summary (change plots? two slides?)
 .pull-left[
 ```{r plot-delta-zfin, eval=T, echo=FALSE, warnings=F, message=F, fig.height=10}
 library(ggrepel)
@@ -492,17 +516,17 @@ combined_data %>%
   mutate(`Position (Mb)` = POS/1e6, `Frequency` = FREQ, col = ID) %>%
   ggplot(aes(`Position (Mb)`, `Frequency`)) + 
   geom_jitter(alpha = .3, size = .3, width = 0, height =.01) + 
-  geom_point(data = zfin_ids, aes(x = mean.pos/1e6, y = mean.freq, color = "red"), alpha = 1, size = .3) +
-  geom_text_repel(data = zfin_ids, 
-                  aes(x = mean.pos/1e6, y = mean.freq, label = zfin_id_symbol), 
-                  max.overlaps = Inf, 
-                  min.segment.length = 0.5,
-                  segment.size = 1,
-                  box.padding = .1,
-                  na.rm = T
+  geom_point(data = annotated_gene_names, aes(x = mean.pos/1e6, y = mean.freq, color = "red"), alpha = 1, size = .3) +
+ # geom_text_repel(data = annotated_gene_names, 
+  #                aes(x = mean.pos/1e6, y = ifelse(mean.freq>0.6,mean.freq, NA), label = external_gene_name), 
+   #               max.overlaps = Inf, 
+    #              min.segment.length = 0.5,
+     #             segment.size = 1,
+      #            box.padding = .1,
+       #           na.rm = T
                   #segment.color = "red",
                   #arrow = arrow(length = unit(0.07, "inches"), type = "open")
-                  ) +# theme(legend.position = "none") + 
+        #          ) +# theme(legend.position = "none") + 
   ylab("Delta Allele Freq") + 
   xlab("Chromosome 4 (Mb)") + 
   facet_wrap(~ID, ncol = 1)
@@ -510,9 +534,10 @@ combined_data %>%
 ```
 ]
 .pull-right.nowrap[
-```{r list-of-positions}
-annotated_positions %>% 
-  select(POS, Gene_ID) %>%
+```{r list-of-positions, eval=T}
+annotated_gene_names %>% 
+  arrange(-mean.freq) %>% 
+  select(Gene_ID, mean.pos) %>%
   unique()
 ```
 ]

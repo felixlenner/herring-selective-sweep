@@ -4,7 +4,7 @@
     <title>Herring Selective Sweep</title>
     <meta charset="utf-8" />
     <meta name="author" content="Love Chrisson, Felix Lenner &amp; Ben Titmus" />
-    <meta name="date" content="2021-05-28" />
+    <meta name="date" content="2021-05-29" />
     <link href="libs/remark-css-0.0.1/default.css" rel="stylesheet" />
     <link href="libs/remark-css-0.0.1/default-fonts.css" rel="stylesheet" />
   </head>
@@ -15,7 +15,7 @@ class: center, middle, inverse, title-slide
 # Herring Selective Sweep
 ## Bioinformatics 3MR103
 ### Love Chrisson, Felix Lenner &amp; Ben Titmus
-### 2021-05-28
+### 2021-05-29
 
 ---
 
@@ -340,7 +340,7 @@ annotation &lt;- vroom(annotations_path, delim = "\t", col_names = c("POS", "ANN
 # Annotate delta frequencies
 annotated_positions &lt;- delta_allele_freq %&gt;% 
   # In the approximate region
-* filter(between(POS, 0.9e7, 1.3e7)) %&gt;%
+* filter(between(POS, 1e7, 1.3e7)) %&gt;%
   # With a high delta freq
 * filter(FREQ &gt; 0.6) %&gt;%
   # Keep only SNPs with good data
@@ -379,7 +379,8 @@ annotate_positions &lt;- function(input_df, annotation_df) {
     separate(ANN, into = snpEff_column_names,     # separate the ANN column
              sep = "\\|")                         # into columns based on SnpEff information
   
-  output_df &lt;- inner_join(input_df, untangled_annotations, by = "POS") # add annotations to input dataframe 
+  # Add annotations to input dataframe 
+  output_df &lt;- inner_join(input_df, untangled_annotations, by = "POS") 
   
   return(output_df)
 }
@@ -419,22 +420,64 @@ annotated_positions %&gt;% print(n = 5)
 ```r
 # Can then filter what we want
 annotated_positions %&gt;% group_by(Gene_ID) %&gt;%
-  filter(Feature_Type == "transcript") %&gt;% 
-  summarize(mean.POS = as.integer(mean(POS)), mean.FREQ = mean(FREQ)) %&gt;%
-  select(Gene_ID, POS = mean.POS, FREQ = mean.FREQ)
+  filter(Feature_Type == "transcript") %&gt;%
+  select(Gene_ID, POS, FREQ) %&gt;% unique() %&gt;%
+  summarize(mean.POS = as.integer(mean(POS)), mean.FREQ = mean(FREQ)) %&gt;% print(n = 5)
 ```
 
 ```
 ## # A tibble: 7 x 3
-##   Gene_ID                 POS  FREQ
-##   &lt;chr&gt;                 &lt;int&gt; &lt;dbl&gt;
-## 1 ENSCHAG00000025774 11175669 0.634
-## 2 ENSCHAG00000025873 11220842 0.627
-## 3 ENSCHAG00000025879 11296216 0.662
-## 4 ENSCHAG00000025886 11332637 0.643
-## 5 ENSCHAG00000025895 11354827 0.638
-## 6 ENSCHAG00000026024 11383125 0.671
-## 7 ENSCHAG00000026767 11409447 0.643
+##   Gene_ID            mean.POS mean.FREQ
+##   &lt;chr&gt;                 &lt;int&gt;     &lt;dbl&gt;
+## 1 ENSCHAG00000025774 11175669     0.634
+## 2 ENSCHAG00000025873 11220842     0.627
+## 3 ENSCHAG00000025879 11296216     0.662
+## 4 ENSCHAG00000025886 11335365     0.643
+## 5 ENSCHAG00000025895 11354827     0.638
+## # … with 2 more rows
+```
+]
+
+???
+
+I could take the annotations parts maybe? (and more if needed)
+
+---
+
+```
+## `summarise()` has grouped output by 'Gene_ID'. You can override using the `.groups` argument.
+```
+
+# biomaRt
+.tiny[
+
+```r
+# A bug in biomaRt overwrites dplyr::select, workaround is to unload dplyr, then load it _after_ biomaRt
+#detach("package:dplyr")
+#library(biomaRt)
+#library(dplyr)
+
+# connect to the herring database
+ensembl = useMart("ensembl",dataset="charengus_gene_ensembl",host="https://useast.ensembl.org/")
+
+annotated_gene_names &lt;- annotated_positions %&gt;%            # Take our annotated positions
+  group_by(Gene_ID) %&gt;%                        # Group by Gene_ID
+  filter(Feature_Type == "transcript" &amp;        # Filter for transcripts
+        Annotation != "intron_variant") %&gt;%    # Remove intron_variants (remove "double-ids")
+  select(POS, FREQ, Gene_ID, ID) %&gt;%           # Select columns to keep 
+  unique() %&gt;%                                 # Don't let multiple transcripts affect the means
+  summarize(mean.pos = mean(POS),              # Summarize mean position and frequency
+            mean.freq = mean(FREQ), 
+            Gene_ID, ID) %&gt;% 
+  unique() %&gt;%                                 # keep only unique rows
+  mutate(getBM(attributes = c('ensembl_gene_id', 'external_gene_name'), # New columns from ensambl
+               filters = 'ensembl_gene_id',    # where the ensembl_gene_id
+               values = Gene_ID,               # equals the Gene_ID
+               mart = ensembl,                 # chose mart/database
+               uniqueRows = F)) %&gt;%            # give us everything
+  mutate(external_gene_name = ifelse(external_gene_name == "", NA, external_gene_name)) %&gt;% # change "" to NA
+  #na.omit() %&gt;%                                # keep only genes with zfin_id's
+  select(-ensembl_gene_id)                     # remove duplicate column
 ```
 ]
 
@@ -447,30 +490,23 @@ I could take the annotations parts maybe? (and more if needed)
 .tiny[
 
 ```r
-# A bug in biomaRt overwrites dplyr::select, workaround is to unload dplyr, then load it _after_ biomaRt
-detach("package:dplyr")
-library(biomaRt)
-library(dplyr)
+annotated_gene_names %&gt;% 
+  #filter(external_gene_name != "NA") %&gt;% 
+  arrange(-mean.freq)
+```
 
-# connect to the herring database
-ensembl = useMart("ensembl",dataset="charengus_gene_ensembl")
-
-zfin_ids &lt;- annotated_positions %&gt;%            # Take our annotated positions
-  filter(Feature_Type == "transcript" &amp;        # Filter for transcripts
-           Annotation != "intron_variant") %&gt;% # Remove intron_variants
-  group_by(Gene_ID) %&gt;%                        # Group by Gene_IDs
-  select(POS, FREQ, Gene_ID, ID) %&gt;%           # Select column we keep from annotation
-  summarize(mean.pos = mean(POS),              # Summarize like code above
-            mean.freq = mean(FREQ), Gene_ID, ID) %&gt;% 
-  unique() %&gt;%                                 # But keep only uniques
-  mutate(getBM(attributes = c('ensembl_gene_id', 'zfin_id_symbol'), # New columns from ensambl
-               filters = 'ensembl_gene_id',    # where the ensembl_gene_id
-               values = Gene_ID,               # equals the Gene_ID
-               mart = ensembl,                 # chose mart/database
-               uniqueRows = F)) %&gt;%            # give us everything
-  mutate(zfin_id_symbol = ifelse(zfin_id_symbol == "", NA, zfin_id_symbol)) %&gt;% # change "" to NA
-  na.omit() %&gt;%                               # keep genes with zfin_id's
-  select(-ensembl_gene_id)                    # remove duplicate column
+```
+## # A tibble: 7 x 4
+## # Groups:   Gene_ID [7]
+##   Gene_ID             mean.pos mean.freq ID               
+##   &lt;chr&gt;                  &lt;dbl&gt;     &lt;dbl&gt; &lt;chr&gt;            
+## 1 ENSCHAG00000026024 11383125      0.671 Delta Allele Freq
+## 2 ENSCHAG00000026767 11383125      0.671 Delta Allele Freq
+## 3 ENSCHAG00000025879 11326441      0.643 Delta Allele Freq
+## 4 ENSCHAG00000025886 11329910.     0.643 Delta Allele Freq
+## 5 ENSCHAG00000025895 11352886.     0.636 Delta Allele Freq
+## 6 ENSCHAG00000025873 11220842.     0.627 Delta Allele Freq
+## 7 ENSCHAG00000025774 11179139      0.614 Delta Allele Freq
 ```
 ]
 
@@ -479,56 +515,32 @@ zfin_ids &lt;- annotated_positions %&gt;%            # Take our annotated positi
 I could take the annotations parts maybe? (and more if needed)
 
 ---
-# biomaRt
 
-```r
-zfin_ids
-```
-
-```
-## # A tibble: 4 x 5
-## # Groups:   Gene_ID [4]
-##   Gene_ID             mean.pos mean.freq ID                zfin_id_symbol
-##   &lt;chr&gt;                  &lt;dbl&gt;     &lt;dbl&gt; &lt;chr&gt;             &lt;chr&gt;         
-## 1 ENSCHAG00000025774 11179139      0.614 Delta Allele Freq magi1a        
-## 2 ENSCHAG00000025873 11220842.     0.627 Delta Allele Freq rho           
-## 3 ENSCHAG00000026024 11383125      0.671 Delta Allele Freq qars1         
-## 4 ENSCHAG00000026767 11383125      0.671 Delta Allele Freq espn
-```
-
-???
-
-I could take the annotations parts maybe? (and more if needed)
-
----
-
-# Summary of the results (change plots? two slides?)
+# Summary (change plots? two slides?)
 .pull-left[
 ![](herring_project_presentation_files/figure-html/plot-delta-zfin-1.png)&lt;!-- --&gt;
 ]
 .pull-right.nowrap[
 
 ```r
-annotated_positions %&gt;% 
-  select(POS, Gene_ID) %&gt;%
+annotated_gene_names %&gt;% 
+  arrange(-mean.freq) %&gt;% 
+  select(Gene_ID, mean.pos) %&gt;%
   unique()
 ```
 
 ```
-## # A tibble: 44 x 2
-##         POS Gene_ID           
-##       &lt;dbl&gt; &lt;chr&gt;             
-##  1 11149615 ENSCHAG00000025774
-##  2 11171455 ENSCHAG00000025774
-##  3 11172685 ENSCHAG00000025774
-##  4 11172702 ENSCHAG00000025774
-##  5 11173830 ENSCHAG00000025774
-##  6 11175785 ENSCHAG00000025774
-##  7 11179139 ENSCHAG00000025774
-##  8 11181395 ENSCHAG00000025774
-##  9 11204418 ENSCHAG00000025774
-## 10 11220285 ENSCHAG00000025873
-## # … with 34 more rows
+## # A tibble: 7 x 2
+## # Groups:   Gene_ID [7]
+##   Gene_ID             mean.pos
+##   &lt;chr&gt;                  &lt;dbl&gt;
+## 1 ENSCHAG00000026024 11383125 
+## 2 ENSCHAG00000026767 11383125 
+## 3 ENSCHAG00000025879 11326441 
+## 4 ENSCHAG00000025886 11329910.
+## 5 ENSCHAG00000025895 11352886.
+## 6 ENSCHAG00000025873 11220842.
+## 7 ENSCHAG00000025774 11179139
 ```
 ]
 
