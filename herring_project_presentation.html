@@ -69,7 +69,7 @@ pre {
 
 # Check population structure 
 
-1. Extract chromosome 4
+Extract chromosome 4
 
 
 ```bash
@@ -77,13 +77,18 @@ vcftools --gzvcf data/Ch_v2.0.2_79_ind_snpEff.vcf.gz
 --chr chr4 --recode --out data/chr4
 ```
 
-1. Principal component analysis with PLINK
+Principal component analysis with PLINK
 
 
 ```bash
 plink --vcf data/Ch_v2.0.2_79_ind_snpEff_chr4.vcf 
 --double-id  --pca tabs --out data/chr4_pca
 ```
+
+???
+
+Then read output into R and plot 
+
 ---
 # Read the files into R (skip?)
 
@@ -123,19 +128,23 @@ variance_label &lt;- function(pc, var_vector) {
 ---
 # PCA Plot
 
+
 ```r
-ggplot(eigenvec, aes(x = PC1, y = PC2, color = Area)) + 
-  geom_point() +
+ggplot(eigenvec, aes(x = PC1, y = PC2, color = Area)) +
+  # minor amount of jitter to make the baltic samples visible
+  geom_jitter(width = 0.01, height = 0.03, alpha = 0.5) +
   xlab(variance_label("PC1", eigenval)) + 
   ylab(variance_label("PC2", eigenval))
 ```
 
 ![](herring_project_presentation_files/figure-html/unnamed-chunk-5-1.png)&lt;!-- --&gt;
 ---
-# Balsfjord herring are outliers in the Atlantic area
+# Balsfjord herring are not Atlantic
+
 
 ```r
 # Filter the PCA data for the atlantic outliers 
+
 eigenvec %&gt;% filter(PC1 &gt; 0 &amp; Area == "Atlantic") %&gt;% select(ID1)
 ```
 
@@ -149,15 +158,40 @@ eigenvec %&gt;% filter(PC1 &gt; 0 &amp; Area == "Atlantic") %&gt;% select(ID1)
 # 4 HWS64_Balsfjord_Atlantic
 ```
 ---
+# Allele frequencies
+
+Get a list of the samples
+
+
+```bash
+# same for baltic
+bcftools query -l chr4.vcf | grep "Atlantic" | grep -v "Balsfjord" &gt; atlantic_samples.txt
+
+```
+
+Output allele frequencies
+
+
+```bash
+# same for baltic
+vcftools --vcf chr4.vcf --keep atlantic_samples.txt --freq2 --out chr4_atlantic
+```
+
+???
+
+Then read into R
+
+---
+
 # Bash stuff (skip? keep --freq2 command?)
+
 
 ```bash
 # Get sample names
 bcftools query -l chr4.recode.vcf | grep "Baltic" &gt; baltic_samples.txt
-
 bcftools query -l chr4.recode.vcf | grep "Atlantic" | grep -v "Balsfjord" &gt; atlantic_samples.txt
 
-# Produce vcf-files for chr4 where atlantic, baltic, atlantic and balic are kept
+# Produce vcf-files for chr4 where atlantic and baltic are kept 
 vcftools --vcf chr4.recode.vcf -keep atlantic_samples.txt --recode --out chr4_atlantic
 vcftools --vcf chr4.recode.vcf -keep baltic_samples.txt --recode --out chr4_baltic
 
@@ -166,12 +200,14 @@ vcftools --vcf data/chr4_atlantic.recode.vcf --freq2 --out chr4_atlantic
 vcftools --vcf data/chr4_baltic.recode.vcf --freq2 --out chr4_baltic
 ```
 ---
+
 # Read Allele frequencies into R (skip?)
 
 
 ```r
 allele_column_names = c("CHROM", "POS", "N_ALLELES", "N_CHR", "A1_FREQ", "A2_FREQ")
 allele_column_types = "cddddd"
+
 #Load samples 
 atlantic_raw_allele_freq &lt;- read_tsv(file = atlantic_freq_path, skip = 1, col_names = allele_column_names, col_types = allele_column_types)
 
@@ -190,6 +226,7 @@ baltic_allele_freq &lt;- baltic_raw_allele_freq %&gt;%
   mutate(ID = "Baltic Alt Allele Freq")
 ```
 ---
+
 # Calculate delta and window-size (skip windows?)
 
 
@@ -206,10 +243,11 @@ delta_allele_freq &lt;- delta_allele_freq %&gt;%
 
 
 ```r
-#Combine and set a window size (skip?)
+# Combine data
 combined_allele_freq &lt;- rbind(atlantic_allele_freq, 
                        baltic_allele_freq, 
                        delta_allele_freq)
+# Set window size
 *window_size = 1000
 
 # Calculates break size based on window size 
@@ -221,24 +259,35 @@ break_size &lt;- function(positions, window_size) {
 ---
 # Plot allele frequencies (all or just delta?)
 
+
 ```r
 combined_allele_freq %&gt;%
 * group_by(gr = cut(POS, break_size(POS, window_size)), ID) %&gt;%
   summarize(`Position (Mb)` = mean(POS/1e6), `Mean Frequency` = mean(FREQ)) %&gt;%
   ggplot(aes(`Position (Mb)`,`Mean Frequency`, col = ID)) + 
-  geom_jitter(width = 0, height = 0.03, size = .1, alpha = .3) + 
+  geom_jitter(width = 0, height = 0.03, size = .1, alpha = .3, show.legend = FALSE) + 
   facet_wrap(~ID, ncol = 3)
 ```
 
-![](herring_project_presentation_files/figure-html/unnamed-chunk-7-1.png)&lt;!-- --&gt;
+![](herring_project_presentation_files/figure-html/unnamed-chunk-9-1.png)&lt;!-- --&gt;
+
 ---
+
+# Heterozygosity (should we just skip het completely? just show/explain missing?)
+
+Use VCFtools to get heterozygosity frequencies
+
+```bash
+vctools --vcf chr4.vcf --keep atlantic_samples.txt --hardy --out ...
+```
+
+Read into R, calculate delta and also total observations...
+
+---
+
 # Heterozygosity (skip/keep?)
 .tiny[
 
-```bash
-vctools --vcf chr4_atlantic.vcf --keep data/atlantic_samples.txt --hardy --out chr4_atlantic_het
-vctools --vcf chr4_atlantic.vcf --keep data/atlantic_samples.txt --hardy --out chr4_atlantic_het
-```
 
 
 ```r
@@ -272,8 +321,11 @@ delta_het_freq &lt;- delta_het_freq %&gt;%
 atlantic_baltic_het_freq &lt;- rbind(atlantic_het_freq, baltic_het_freq)
 ```
 ]
+
 ---
+
 # Missing observations 
+
 
 ```r
 atlantic_baltic_het_freq %&gt;%
@@ -284,8 +336,11 @@ atlantic_baltic_het_freq %&gt;%
 ```
 
 ![](herring_project_presentation_files/figure-html/missingness-plot-1.png)&lt;!-- --&gt;
+
 ---
-# Filter on missing data (keep?)
+
+# Filter the data (keep?)
+
 
 ```r
 # Choose a filter threshold, % of max
@@ -301,8 +356,11 @@ positions_to_keep &lt;- inner_join(atlantic_het_freq, baltic_het_freq, by = "POS
 ```
 
 
+
 ---
-# after removing bad SNPs (only delta?)
+
+# After filtering (show only delta?)
+
 
 ```r
 combined_allele_freq %&gt;%
@@ -314,14 +372,22 @@ combined_allele_freq %&gt;%
   facet_wrap(~ID, ncol = 3) + theme_minimal()
 ```
 
-![](herring_project_presentation_files/figure-html/unnamed-chunk-9-1.png)&lt;!-- --&gt;
+![](herring_project_presentation_files/figure-html/unnamed-chunk-12-1.png)&lt;!-- --&gt;
 
 ???
 
 Mention here the delta-freq peak
 
 ---
+
+# Should we put a zoomed in plot here?
+
+![](herring_project_presentation_files/figure-html/unnamed-chunk-13-1.png)&lt;!-- --&gt;
+
+---
+
 # Annotation
+
 
 ```bash
 # To get the annotations from the VCF-file
@@ -342,9 +408,9 @@ annotated_positions &lt;- delta_allele_freq %&gt;%
   # In the approximate region
 * filter(between(POS, 1e7, 1.3e7)) %&gt;%
   # With a high delta freq
-* filter(FREQ &gt; 0.6) %&gt;%
+* filter(FREQ &gt; 0.5) %&gt;%
   # Keep only SNPs with good data
-  filter(POS %in% positions_to_keep$POS) %&gt;% 
+* filter(POS %in% positions_to_keep$POS) %&gt;%
   # Run the annotation function
 * annotate_positions(annotation)
 ```
@@ -354,7 +420,9 @@ annotated_positions &lt;- delta_allele_freq %&gt;%
 I could take the annotations parts maybe? (and more if needed)
 
 ---
+
 # annotate_positions()
+
 .tiny[
 
 ```r
@@ -392,29 +460,51 @@ annotate_positions &lt;- function(input_df, annotation_df) {
 I could take the annotations parts maybe? (and more if needed)
 
 ---
-# Even more annotation
+# Annotations
+Before
 .nowrap.tiny[
 
 ```r
-annotated_positions %&gt;% print(n = 5)
+delta_allele_freq %&gt;% print(n = 4)
 ```
 
 ```
-## # A tibble: 122 x 20
+## # A tibble: 1,158,327 x 3
+##     POS   FREQ ID               
+##   &lt;dbl&gt;  &lt;dbl&gt; &lt;chr&gt;            
+## 1   369 0.0227 Delta Allele Freq
+## 2   404 0      Delta Allele Freq
+## 3   421 0.0357 Delta Allele Freq
+## 4   427 0.0185 Delta Allele Freq
+## # … with 1,158,323 more rows
+```
+]
+After
+.nowrap.tiny[
+
+```r
+annotated_positions %&gt;% print(n = 4)
+```
+
+```
+## # A tibble: 258 x 20
 ##       POS  FREQ ID    Annotation_ID Allele Annotation Annotation_Impa… Gene_Name
 ##     &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;         &lt;int&gt; &lt;chr&gt;  &lt;chr&gt;      &lt;chr&gt;            &lt;chr&gt;    
-## 1  1.11e7 0.629 Delt…             1 A      intron_va… MODIFIER         ENSCHAG0…
-## 2  1.11e7 0.629 Delt…             2 A      intron_va… MODIFIER         ENSCHAG0…
-## 3  1.11e7 0.629 Delt…             3 A      intron_va… MODIFIER         ENSCHAG0…
-## 4  1.11e7 0.629 Delt…             4 A      intron_va… MODIFIER         ENSCHAG0…
-## 5  1.11e7 0.629 Delt…             5 A      intron_va… MODIFIER         ENSCHAG0…
-## # … with 117 more rows, and 12 more variables: Gene_ID &lt;chr&gt;,
+## 1  1.04e7 0.564 Delt…             1 G      intron_va… MODIFIER         ENSCHAG0…
+## 2  1.04e7 0.564 Delt…             2 G      intron_va… MODIFIER         ENSCHAG0…
+## 3  1.04e7 0.564 Delt…             3 G      intron_va… MODIFIER         ENSCHAG0…
+## 4  1.04e7 0.564 Delt…             4 G      intron_va… MODIFIER         ENSCHAG0…
+## # … with 254 more rows, and 12 more variables: Gene_ID &lt;chr&gt;,
 ## #   Feature_Type &lt;chr&gt;, Feature_ID &lt;chr&gt;, Transcript_BioType &lt;chr&gt;, Rank &lt;chr&gt;,
 ## #   HGVS.c &lt;chr&gt;, HGVS.p &lt;chr&gt;, cDNA.pos / cDNA.length &lt;chr&gt;,
 ## #   CDS.pos / CDS.length &lt;chr&gt;, AA.pos / AA.length &lt;chr&gt;, Distance &lt;chr&gt;,
 ## #   ERRORS / WARNINGS / INFO &lt;chr&gt;
 ```
 ]
+---
+
+# Filter the output
+
 .tiny[
 
 ```r
@@ -422,19 +512,28 @@ annotated_positions %&gt;% print(n = 5)
 annotated_positions %&gt;% group_by(Gene_ID) %&gt;%
   filter(Feature_Type == "transcript") %&gt;%
   select(Gene_ID, POS, FREQ) %&gt;% unique() %&gt;%
-  summarize(mean.POS = as.integer(mean(POS)), mean.FREQ = mean(FREQ)) %&gt;% print(n = 5)
+  summarize(mean.POS = as.integer(mean(POS)), mean.FREQ = mean(FREQ))
 ```
 
 ```
-## # A tibble: 7 x 3
-##   Gene_ID            mean.POS mean.FREQ
-##   &lt;chr&gt;                 &lt;int&gt;     &lt;dbl&gt;
-## 1 ENSCHAG00000025774 11175669     0.634
-## 2 ENSCHAG00000025873 11220842     0.627
-## 3 ENSCHAG00000025879 11296216     0.662
-## 4 ENSCHAG00000025886 11335365     0.643
-## 5 ENSCHAG00000025895 11354827     0.638
-## # … with 2 more rows
+## # A tibble: 15 x 3
+##    Gene_ID            mean.POS mean.FREQ
+##    &lt;chr&gt;                 &lt;int&gt;     &lt;dbl&gt;
+##  1 ENSCHAG00000006163 10374208     0.564
+##  2 ENSCHAG00000025774 11175669     0.634
+##  3 ENSCHAG00000025873 11219606     0.608
+##  4 ENSCHAG00000025879 11292290     0.629
+##  5 ENSCHAG00000025886 11335365     0.643
+##  6 ENSCHAG00000025895 11357239     0.620
+##  7 ENSCHAG00000026024 11380240     0.575
+##  8 ENSCHAG00000026767 11411895     0.602
+##  9 ENSCHAG00000026775 11439566     0.571
+## 10 ENSCHAG00000026777 11458459     0.571
+## 11 ENSCHAG00000026796 11484890     0.546
+## 12 ENSCHAG00000026905 11547797     0.567
+## 13 ENSCHAG00000026909 11581898     0.571
+## 14 ENSCHAG00000026911 11595762     0.550
+## 15 ENSCHAG00000026916 11637637     0.536
 ```
 ]
 
@@ -444,11 +543,12 @@ I could take the annotations parts maybe? (and more if needed)
 
 ---
 
-```
-## `summarise()` has grouped output by 'Gene_ID'. You can override using the `.groups` argument.
-```
+
 
 # biomaRt
+
+Used biomaRt to get gene names for each Gene ID
+
 .tiny[
 
 ```r
@@ -458,7 +558,7 @@ I could take the annotations parts maybe? (and more if needed)
 #library(dplyr)
 
 # connect to the herring database
-ensembl = useMart("ensembl",dataset="charengus_gene_ensembl",host="https://useast.ensembl.org/")
+ensembl = useMart("ensembl",dataset="charengus_gene_ensembl")
 
 annotated_gene_names &lt;- annotated_positions %&gt;%            # Take our annotated positions
   group_by(Gene_ID) %&gt;%                        # Group by Gene_ID
@@ -486,7 +586,9 @@ annotated_gene_names &lt;- annotated_positions %&gt;%            # Take our anno
 I could take the annotations parts maybe? (and more if needed)
 
 ---
+
 # biomaRt
+
 .tiny[
 
 ```r
@@ -496,17 +598,23 @@ annotated_gene_names %&gt;%
 ```
 
 ```
-## # A tibble: 7 x 4
-## # Groups:   Gene_ID [7]
-##   Gene_ID             mean.pos mean.freq ID               
-##   &lt;chr&gt;                  &lt;dbl&gt;     &lt;dbl&gt; &lt;chr&gt;            
-## 1 ENSCHAG00000026024 11383125      0.671 Delta Allele Freq
-## 2 ENSCHAG00000026767 11383125      0.671 Delta Allele Freq
-## 3 ENSCHAG00000025879 11326441      0.643 Delta Allele Freq
-## 4 ENSCHAG00000025886 11329910.     0.643 Delta Allele Freq
-## 5 ENSCHAG00000025895 11352886.     0.636 Delta Allele Freq
-## 6 ENSCHAG00000025873 11220842.     0.627 Delta Allele Freq
-## 7 ENSCHAG00000025774 11179139      0.614 Delta Allele Freq
+## # A tibble: 13 x 4
+## # Groups:   Gene_ID [13]
+##    Gene_ID             mean.pos mean.freq ID               
+##    &lt;chr&gt;                  &lt;dbl&gt;     &lt;dbl&gt; &lt;chr&gt;            
+##  1 ENSCHAG00000025879 11326441      0.643 Delta Allele Freq
+##  2 ENSCHAG00000025886 11329910.     0.643 Delta Allele Freq
+##  3 ENSCHAG00000025895 11352886.     0.636 Delta Allele Freq
+##  4 ENSCHAG00000026024 11384018.     0.629 Delta Allele Freq
+##  5 ENSCHAG00000025774 11179139      0.614 Delta Allele Freq
+##  6 ENSCHAG00000025873 11219607.     0.608 Delta Allele Freq
+##  7 ENSCHAG00000026767 11416264.     0.605 Delta Allele Freq
+##  8 ENSCHAG00000026775 11439566      0.571 Delta Allele Freq
+##  9 ENSCHAG00000026777 11458460.     0.571 Delta Allele Freq
+## 10 ENSCHAG00000026909 11581898      0.571 Delta Allele Freq
+## 11 ENSCHAG00000026911 11594816      0.557 Delta Allele Freq
+## 12 ENSCHAG00000026796 11488153      0.552 Delta Allele Freq
+## 13 ENSCHAG00000026916 11637637      0.536 Delta Allele Freq
 ```
 ]
 
@@ -516,33 +624,14 @@ I could take the annotations parts maybe? (and more if needed)
 
 ---
 
-# Summary (change plots? two slides?)
-.pull-left[
-![](herring_project_presentation_files/figure-html/plot-delta-zfin-1.png)&lt;!-- --&gt;
-]
-.pull-right.nowrap[
 
-```r
-annotated_gene_names %&gt;% 
-  arrange(-mean.freq) %&gt;% 
-  select(Gene_ID, mean.pos) %&gt;%
-  unique()
-```
 
-```
-## # A tibble: 7 x 2
-## # Groups:   Gene_ID [7]
-##   Gene_ID             mean.pos
-##   &lt;chr&gt;                  &lt;dbl&gt;
-## 1 ENSCHAG00000026024 11383125 
-## 2 ENSCHAG00000026767 11383125 
-## 3 ENSCHAG00000025879 11326441 
-## 4 ENSCHAG00000025886 11329910.
-## 5 ENSCHAG00000025895 11352886.
-## 6 ENSCHAG00000025873 11220842.
-## 7 ENSCHAG00000025774 11179139
-```
-]
+# Summary (change plots?)
+
+![](herring_project_presentation_files/figure-html/plot-delta-gene-names-1.png)&lt;!-- --&gt;
+
+
+
 
 ???
 

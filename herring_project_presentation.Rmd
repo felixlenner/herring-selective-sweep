@@ -39,10 +39,10 @@ baltic_het_path = 'data/chr4_baltic.hwe'
 
 annotations_path = 'data/original_already_annotated.txt'
 
-library(biomaRt)
-library(tidyverse)
-library(vroom)
-library(ggrepel)
+library("biomaRt")
+library("tidyverse")
+library("vroom")
+library("ggrepel")
 
 # Set cache TRUE or FALSE 
 knitr::opts_chunk$set(cache = FALSE)
@@ -94,19 +94,24 @@ knitr::knit_hooks$set(source = function(x, options) {
 
 # Check population structure 
 
-1. Extract chromosome 4
+Extract chromosome 4
 
 ```{bash, eval=FALSE, echo=T}
 vcftools --gzvcf data/Ch_v2.0.2_79_ind_snpEff.vcf.gz 
 --chr chr4 --recode --out data/chr4
 ```
 
-1. Principal component analysis with PLINK
+Principal component analysis with PLINK
 
 ```{bash, eval=F, echo=T}
 plink --vcf data/Ch_v2.0.2_79_ind_snpEff_chr4.vcf 
 --double-id  --pca tabs --out data/chr4_pca
 ```
+
+???
+
+Then read output into R and plot 
+
 ---
 # Read the files into R (skip?)
 ```{r, message=FALSE, echo=TRUE}
@@ -143,27 +148,54 @@ variance_label <- function(pc, var_vector) {
 ```
 ---
 # PCA Plot
+
 ```{r, fig.height=4, dev='png', echo=T}
-ggplot(eigenvec, aes(x = PC1, y = PC2, color = Area)) + 
-  geom_point() +
+ggplot(eigenvec, aes(x = PC1, y = PC2, color = Area)) +
+  # minor amount of jitter to make the baltic samples visible
+  geom_jitter(width = 0.01, height = 0.03, alpha = 0.5) +
   xlab(variance_label("PC1", eigenval)) + 
   ylab(variance_label("PC2", eigenval))
 ```
 ---
-# Balsfjord herring are outliers in the Atlantic area
+# Balsfjord herring are not Atlantic
+
 ```{r, comment='#', list-outliers}
 # Filter the PCA data for the atlantic outliers 
+
 eigenvec %>% filter(PC1 > 0 & Area == "Atlantic") %>% select(ID1)
 ```
 ---
+# Allele frequencies
+
+Get a list of the samples
+
+```{bash, eval=F, comment='#'}
+# same for baltic
+bcftools query -l chr4.vcf | grep "Atlantic" | grep -v "Balsfjord" > atlantic_samples.txt
+
+```
+
+Output allele frequencies
+
+```{bash, eval=F, comment='#'}
+# same for baltic
+vcftools --vcf chr4.vcf --keep atlantic_samples.txt --freq2 --out chr4_atlantic
+```
+
+???
+
+Then read into R
+
+---
+
 # Bash stuff (skip? keep --freq2 command?)
+
 ```{bash, comment='#', eval=F, echo=T}
 # Get sample names
 bcftools query -l chr4.recode.vcf | grep "Baltic" > baltic_samples.txt
-
 bcftools query -l chr4.recode.vcf | grep "Atlantic" | grep -v "Balsfjord" > atlantic_samples.txt
 
-# Produce vcf-files for chr4 where atlantic, baltic, atlantic and balic are kept
+# Produce vcf-files for chr4 where atlantic and baltic are kept 
 vcftools --vcf chr4.recode.vcf -keep atlantic_samples.txt --recode --out chr4_atlantic
 vcftools --vcf chr4.recode.vcf -keep baltic_samples.txt --recode --out chr4_baltic
 
@@ -172,11 +204,13 @@ vcftools --vcf data/chr4_atlantic.recode.vcf --freq2 --out chr4_atlantic
 vcftools --vcf data/chr4_baltic.recode.vcf --freq2 --out chr4_baltic
 ```
 ---
+
 # Read Allele frequencies into R (skip?)
 
 ```{r, comment='#', load-allele-frequencies}
 allele_column_names = c("CHROM", "POS", "N_ALLELES", "N_CHR", "A1_FREQ", "A2_FREQ")
 allele_column_types = "cddddd"
+
 #Load samples 
 atlantic_raw_allele_freq <- read_tsv(file = atlantic_freq_path, skip = 1, col_names = allele_column_names, col_types = allele_column_types)
 
@@ -194,6 +228,7 @@ baltic_allele_freq <- baltic_raw_allele_freq %>%
   mutate(ID = "Baltic Alt Allele Freq")
 ```
 ---
+
 # Calculate delta and window-size (skip windows?)
 
 ```{r delta-allele-frequencies, comment='#'}
@@ -208,10 +243,11 @@ delta_allele_freq <- delta_allele_freq %>%
 ```
 
 ```{r combine-and-break-size, comment='#'}
-#Combine and set a window size (skip?)
+# Combine data
 combined_allele_freq <- rbind(atlantic_allele_freq, 
                        baltic_allele_freq, 
                        delta_allele_freq)
+# Set window size
 window_size = 1000 #<<
 
 # Calculates break size based on window size 
@@ -222,18 +258,32 @@ break_size <- function(positions, window_size) {
 
 ---
 # Plot allele frequencies (all or just delta?)
+
 ```{r, message=FALSE, warning=FALSE,fig.width=14,fig.height=5, dev='png'}
 combined_allele_freq %>%
   group_by(gr = cut(POS, break_size(POS, window_size)), ID) %>% #<<
   summarize(`Position (Mb)` = mean(POS/1e6), `Mean Frequency` = mean(FREQ)) %>%
   ggplot(aes(`Position (Mb)`,`Mean Frequency`, col = ID)) + 
-  geom_jitter(width = 0, height = 0.03, size = .1, alpha = .3) + 
+  geom_jitter(width = 0, height = 0.03, size = .1, alpha = .3, show.legend = FALSE) + 
   facet_wrap(~ID, ncol = 3)
 ```
+
 ---
+
+# Heterozygosity (should we just skip het completely? just show/explain missing?)
+
+Use VCFtools to get heterozygosity frequencies
+```{bash, eval=F}
+vctools --vcf chr4.vcf --keep atlantic_samples.txt --hardy --out ...
+```
+
+Read into R, calculate delta and also total observations...
+
+---
+
 # Heterozygosity (skip/keep?)
 .tiny[
-```{bash, calculate-het, eval=F}
+```{bash, calculate-het, eval=F, include=F}
 vctools --vcf chr4_atlantic.vcf --keep data/atlantic_samples.txt --hardy --out chr4_atlantic_het
 vctools --vcf chr4_atlantic.vcf --keep data/atlantic_samples.txt --hardy --out chr4_atlantic_het
 ```
@@ -269,8 +319,11 @@ delta_het_freq <- delta_het_freq %>%
 atlantic_baltic_het_freq <- rbind(atlantic_het_freq, baltic_het_freq)
 ```
 ]
+
 ---
+
 # Missing observations 
+
 ```{r, missingness-plot, message=F, fig.height=4, dev='png'}
 atlantic_baltic_het_freq %>%
   group_by(gr = cut(POS, break_size(POS, 1e5)), ID) %>%
@@ -278,8 +331,11 @@ atlantic_baltic_het_freq %>%
   ggplot(aes(`Position (Mb)`,`Mean missingness`, col = ID)) + 
   geom_line()
 ```
+
 ---
-# Filter on missing data (keep?)
+
+# Filter the data (keep?)
+
 ```{r, comment='#', filter-missingness}
 # Choose a filter threshold, % of max
 filter_threshold = 1
@@ -298,8 +354,11 @@ positions_to_keep <- inner_join(atlantic_het_freq, baltic_het_freq, by = "POS") 
 atlantic_het_freq2 <- atlantic_het_freq %>% select(POS, FREQ, ID)
 baltic_het_freq2 <- baltic_het_freq %>% select(POS, FREQ, ID)
 ```
+
 ---
-# after removing bad SNPs (only delta?)
+
+# After filtering (show only delta?)
+
 ```{r, message=FALSE, warning=FALSE,fig.width=14,fig.height=5, dev='png'}
 combined_allele_freq %>%
   filter(POS %in% positions_to_keep$POS) %>% #<<
@@ -315,7 +374,25 @@ combined_allele_freq %>%
 Mention here the delta-freq peak
 
 ---
+
+# Should we put a zoomed in plot here?
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE, dev='png'}
+combined_allele_freq %>%
+  filter(POS %in% positions_to_keep$POS) %>% 
+  filter(ID == "Delta Allele Freq") %>%
+  filter(between(POS, 0.9e7, 1.4e7)) %>% #<<
+  mutate(`Position (Mb)` = POS/1e6, `Frequency` = FREQ) %>%
+  ggplot(aes(`Position (Mb)`,`Frequency`)) + 
+  geom_jitter(width = 0, height = 0, size = .3, alpha = 1, show.legend = FALSE ) + 
+  theme_minimal() +
+  ggtitle("Delta Allele Freq")
+```
+
+---
+
 # Annotation
+
 ```{bash bcftools-ann, eval=F, echo=T}
 # To get the annotations from the VCF-file
 bcftools query -f "%POS\t%ANN\n" chr4.vcf > output.txt
@@ -363,9 +440,9 @@ annotated_positions <- delta_allele_freq %>%
   # In the approximate region
   filter(between(POS, 1e7, 1.3e7)) %>% #<< 
   # With a high delta freq
-  filter(FREQ > 0.6) %>% #<<   
+  filter(FREQ > 0.5) %>% #<<   
   # Keep only SNPs with good data
-  filter(POS %in% positions_to_keep$POS) %>% 
+  filter(POS %in% positions_to_keep$POS) %>% #<<
   # Run the annotation function
   annotate_positions(annotation) #<<         
 ```
@@ -375,7 +452,9 @@ annotated_positions <- delta_allele_freq %>%
 I could take the annotations parts maybe? (and more if needed)
 
 ---
+
 # annotate_positions()
+
 .tiny[
 ```{r,comment='#', eval = T, message=F}
 annotate_positions <- function(input_df, annotation_df) {
@@ -412,19 +491,30 @@ annotate_positions <- function(input_df, annotation_df) {
 I could take the annotations parts maybe? (and more if needed)
 
 ---
-# Even more annotation
+# Annotations
+Before
 .nowrap.tiny[
 ```{r}
-annotated_positions %>% print(n = 5)
+delta_allele_freq %>% print(n = 4)
 ```
 ]
+After
+.nowrap.tiny[
+```{r}
+annotated_positions %>% print(n = 4)
+```
+]
+---
+
+# Filter the output
+
 .tiny[
 ```{r}
 # Can then filter what we want
 annotated_positions %>% group_by(Gene_ID) %>%
   filter(Feature_Type == "transcript") %>%
   select(Gene_ID, POS, FREQ) %>% unique() %>%
-  summarize(mean.POS = as.integer(mean(POS)), mean.FREQ = mean(FREQ)) %>% print(n = 5)
+  summarize(mean.POS = as.integer(mean(POS)), mean.FREQ = mean(FREQ))
 ```
 ]
 
@@ -433,7 +523,13 @@ annotated_positions %>% group_by(Gene_ID) %>%
 I could take the annotations parts maybe? (and more if needed)
 
 ---
-```{r, fix-for-now, eval=T, echo=F}
+
+```{r, fix-for-biomart-not-working, eval=T, echo=F, message=F}
+# Set eval to true if you dont want to run the biomaRt code
+# The biomaRt code chunk then needs to be set to eval=F
+# And also comment out the labels part of the plot which is set by biomaRt
+# Alternatively, change the label from extrernal_gene_name (previously zfin_id_symbol) to Gene_ID. 
+
 annotated_gene_names <- annotated_positions %>% group_by(Gene_ID) %>%                        # Group by Gene_ID
   filter(Feature_Type == "transcript" &        # Filter for transcripts
         Annotation != "intron_variant") %>%    # Remove intron_variants (remove "double-ids")
@@ -446,15 +542,18 @@ annotated_gene_names <- annotated_positions %>% group_by(Gene_ID) %>%           
 ```
 
 # biomaRt
+
+Used biomaRt to get gene names for each Gene ID
+
 .tiny[
-```{r biomart, eval=F, comment='#', message=F, warning=F, dependson="setup"}
+```{r biomart, eval=F, comment='#', message=F, warning=F}
 # A bug in biomaRt overwrites dplyr::select, workaround is to unload dplyr, then load it _after_ biomaRt
 #detach("package:dplyr")
 #library(biomaRt)
 #library(dplyr)
 
 # connect to the herring database
-ensembl = useMart("ensembl",dataset="charengus_gene_ensembl",host="https://useast.ensembl.org/")
+ensembl = useMart("ensembl",dataset="charengus_gene_ensembl")
 
 annotated_gene_names <- annotated_positions %>%            # Take our annotated positions
   group_by(Gene_ID) %>%                        # Group by Gene_ID
@@ -482,9 +581,11 @@ annotated_gene_names <- annotated_positions %>%            # Take our annotated 
 I could take the annotations parts maybe? (and more if needed)
 
 ---
+
 # biomaRt
+
 .tiny[
-```{r zfin-output, eval=T}
+```{r biomart-output, eval=T}
 annotated_gene_names %>% 
   #filter(external_gene_name != "NA") %>% 
   arrange(-mean.freq)
@@ -496,6 +597,7 @@ annotated_gene_names %>%
 I could take the annotations parts maybe? (and more if needed)
 
 ---
+
 ```{r combine-data, echo=F}
 combined_data <- rbind(atlantic_allele_freq, 
                        atlantic_het_freq2, 
@@ -504,19 +606,20 @@ combined_data <- rbind(atlantic_allele_freq,
                        delta_allele_freq,
                        delta_het_freq)
 ```
-# Summary (change plots? two slides?)
-.pull-left[
-```{r plot-delta-zfin, eval=T, echo=FALSE, warnings=F, message=F, fig.height=10}
+
+# Summary (change plots?)
+
+```{r plot-delta-gene-names, eval=T, echo=FALSE, warnings=F, message=F}
 library(ggrepel)
 
 combined_data %>%
   filter(POS %in% positions_to_keep$POS) %>%
   filter(ID == "Delta Allele Freq" | ID == "Baltic Obs Het Freq") %>%
   filter(between(POS, .9e7, 1.4e7)) %>%
-  mutate(`Position (Mb)` = POS/1e6, `Frequency` = FREQ, col = ID) %>%
-  ggplot(aes(`Position (Mb)`, `Frequency`)) + 
-  geom_jitter(alpha = .3, size = .3, width = 0, height =.01) + 
-  geom_point(data = annotated_gene_names, aes(x = mean.pos/1e6, y = mean.freq, color = "red"), alpha = 1, size = .3) +
+  mutate(`Position (Mb)` = POS/1e6, `Frequency` = FREQ) %>%
+  ggplot(aes(`Position (Mb)`, `Frequency`, col = ID)) + 
+  geom_jitter(alpha = .3, size = .3, width = 0, height =.0) + 
+  geom_point(data = annotated_gene_names, aes(x = mean.pos/1e6, y = mean.freq, color = "annotated genes with gene names"), alpha = 1, size = .3) + theme_minimal() + 
  # geom_text_repel(data = annotated_gene_names, 
   #                aes(x = mean.pos/1e6, y = ifelse(mean.freq>0.6,mean.freq, NA), label = external_gene_name), 
    #               max.overlaps = Inf, 
@@ -532,15 +635,14 @@ combined_data %>%
   facet_wrap(~ID, ncol = 1)
   
 ```
-]
-.pull-right.nowrap[
-```{r list-of-positions, eval=T}
+
+```{r list-of-positions, include=F, eval=T}
 annotated_gene_names %>% 
   arrange(-mean.freq) %>% 
   select(Gene_ID, mean.pos) %>%
   unique()
 ```
-]
+
 
 ???
 
