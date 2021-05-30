@@ -96,7 +96,9 @@ plink --vcf data/Ch_v2.0.2_79_ind_snpEff_chr4.vcf
 Then read output into R and plot 
 
 ---
+
 # Read the files into R (skip?)
+
 
 ```r
 library(tidyverse)
@@ -116,8 +118,11 @@ areas &lt;- c("Atlantic", "Baltic", "SeaofJapan", "BarentsSea", "WhiteSea", "Pac
 eigenvec &lt;- eigenvec %&gt;% 
 * mutate(Area = str_extract(ID1, paste(areas, collapse = "|")))
 ```
+
 ---
+
 # Calculate variance and create label (double-skip?)
+
 
 ```r
 variance_label &lt;- function(pc, var_vector) {
@@ -131,7 +136,9 @@ variance_label &lt;- function(pc, var_vector) {
   return(label)
 }
 ```
+
 ---
+
 # PCA Plot
 
 
@@ -205,7 +212,9 @@ vcftools --vcf chr4.recode.vcf -keep baltic_samples.txt --recode --out chr4_balt
 vcftools --vcf data/chr4_atlantic.recode.vcf --freq2 --out chr4_atlantic
 vcftools --vcf data/chr4_baltic.recode.vcf --freq2 --out chr4_baltic
 ```
+
 ---
+
 
 # Read Allele frequencies into R (skip?)
 
@@ -231,6 +240,7 @@ baltic_allele_freq &lt;- baltic_raw_allele_freq %&gt;%
   select(POS, FREQ = A2_FREQ) %&gt;% 
   mutate(ID = "Baltic Alt Allele Freq")
 ```
+
 ---
 
 # Calculate delta and window-size (skip windows?)
@@ -282,6 +292,7 @@ combined_allele_freq %&gt;%
 # Heterozygosity (should we just skip het completely? just show/explain missing?)
 
 Use VCFtools to get heterozygosity frequencies
+
 
 ```bash
 vctools --vcf chr4.vcf --keep atlantic_samples.txt --hardy --out ...
@@ -466,7 +477,9 @@ annotate_positions &lt;- function(input_df, annotation_df) {
 I could take the annotations parts maybe? (and more if needed)
 
 ---
+
 # Annotations
+
 Before
 .nowrap.tiny[
 
@@ -507,6 +520,7 @@ annotated_positions %&gt;% print(n = 4)
 ## #   ERRORS / WARNINGS / INFO &lt;chr&gt;
 ```
 ]
+
 ---
 
 # Filter the output
@@ -624,6 +638,13 @@ annotated_gene_names %&gt;%
 ```
 ]
 
+---
+
+# biomaRt
+
+.center.top[
+![ensembl](ensembl.png)]
+
 ???
 
 I could take the annotations parts maybe? (and more if needed)
@@ -635,7 +656,6 @@ I could take the annotations parts maybe? (and more if needed)
 # Summary (change plots?)
 
 ![](herring_project_presentation_files/figure-html/plot-delta-gene-names-1.png)&lt;!-- --&gt;
-
 
 
 

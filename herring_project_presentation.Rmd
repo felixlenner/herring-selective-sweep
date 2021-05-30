@@ -119,7 +119,9 @@ plink --vcf data/Ch_v2.0.2_79_ind_snpEff_chr4.vcf
 Then read output into R and plot 
 
 ---
+
 # Read the files into R (skip?)
+
 ```{r, message=FALSE, echo=TRUE}
 library(tidyverse)
 
@@ -138,8 +140,11 @@ areas <- c("Atlantic", "Baltic", "SeaofJapan", "BarentsSea", "WhiteSea", "Pacifi
 eigenvec <- eigenvec %>% 
   mutate(Area = str_extract(ID1, paste(areas, collapse = "|"))) #<<
 ```
+
 ---
+
 # Calculate variance and create label (double-skip?)
+
 ```{r, variance-label, echo=T}
 variance_label <- function(pc, var_vector) {
   # keep PC number
@@ -152,7 +157,9 @@ variance_label <- function(pc, var_vector) {
   return(label)
 }
 ```
+
 ---
+
 # PCA Plot
 
 ```{r, fig.height=4, dev='png', echo=T}
@@ -209,7 +216,9 @@ vcftools --vcf chr4.recode.vcf -keep baltic_samples.txt --recode --out chr4_balt
 vcftools --vcf data/chr4_atlantic.recode.vcf --freq2 --out chr4_atlantic
 vcftools --vcf data/chr4_baltic.recode.vcf --freq2 --out chr4_baltic
 ```
+
 ---
+
 
 # Read Allele frequencies into R (skip?)
 
@@ -233,6 +242,7 @@ baltic_allele_freq <- baltic_raw_allele_freq %>%
   select(POS, FREQ = A2_FREQ) %>% 
   mutate(ID = "Baltic Alt Allele Freq")
 ```
+
 ---
 
 # Calculate delta and window-size (skip windows?)
@@ -279,6 +289,7 @@ combined_allele_freq %>%
 # Heterozygosity (should we just skip het completely? just show/explain missing?)
 
 Use VCFtools to get heterozygosity frequencies
+
 ```{bash, eval=F}
 vctools --vcf chr4.vcf --keep atlantic_samples.txt --hardy --out ...
 ```
@@ -404,7 +415,7 @@ combined_allele_freq %>%
 bcftools query -f "%POS\t%ANN\n" chr4.vcf > output.txt
 ```
 
-```{r,comment='#', eval=T, echo=F}
+```{r, annotate-function-has-to-be-here-for-code-to-work, comment='#', eval=T, echo=F}
 
 # The function has to be here for the code to be able to run,
 # But we don't want to display it, so I added a second code block,
@@ -462,7 +473,7 @@ I could take the annotations parts maybe? (and more if needed)
 # annotate_positions()
 
 .tiny[
-```{r,comment='#', eval = T, message=F}
+```{r, annotate-function-displayed-in-presentation, comment='#', eval = T, message=F}
 annotate_positions <- function(input_df, annotation_df) {
   
   # Filter positions which should be annotated 
@@ -497,7 +508,9 @@ annotate_positions <- function(input_df, annotation_df) {
 I could take the annotations parts maybe? (and more if needed)
 
 ---
+
 # Annotations
+
 Before
 .nowrap.tiny[
 ```{r}
@@ -510,6 +523,7 @@ After
 annotated_positions %>% print(n = 4)
 ```
 ]
+
 ---
 
 # Filter the output
@@ -598,6 +612,13 @@ annotated_gene_names %>%
 ```
 ]
 
+---
+
+# biomaRt
+
+.center.top[
+![ensembl](ensembl.png)]
+
 ???
 
 I could take the annotations parts maybe? (and more if needed)
@@ -626,16 +647,16 @@ combined_data %>%
   ggplot(aes(`Position (Mb)`, `Frequency`, col = ID)) + 
   geom_jitter(alpha = .3, size = .3, width = 0, height =.0) + 
   geom_point(data = annotated_gene_names, aes(x = mean.pos/1e6, y = mean.freq, color = "annotated genes with gene names"), alpha = 1, size = .3) + theme_minimal() + 
- # geom_text_repel(data = annotated_gene_names, 
-  #                aes(x = mean.pos/1e6, y = ifelse(mean.freq>0.6,mean.freq, NA), label = external_gene_name), 
-   #               max.overlaps = Inf, 
-    #              min.segment.length = 0.5,
-     #             segment.size = 1,
-      #            box.padding = .1,
-       #           na.rm = T
+ geom_text_repel(data = annotated_gene_names, 
+                  aes(x = mean.pos/1e6, y = ifelse(mean.freq>0.62,mean.freq, NA), label = Gene_ID), 
+                 max.overlaps = Inf, 
+                  min.segment.length = 0.3,
+                 segment.size = 1,
+                  box.padding = .3,
+                  na.rm = T
                   #segment.color = "red",
                   #arrow = arrow(length = unit(0.07, "inches"), type = "open")
-        #          ) +# theme(legend.position = "none") + 
+                  ) + theme(legend.position = "none") + 
   ylab("Delta Allele Freq") + 
   xlab("Chromosome 4 (Mb)") + 
   facet_wrap(~ID, ncol = 1)
@@ -648,7 +669,6 @@ annotated_gene_names %>%
   select(Gene_ID, mean.pos) %>%
   unique()
 ```
-
 
 ???
 
