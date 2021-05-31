@@ -75,7 +75,7 @@ knitr::knit_hooks$set(source = function(x, options) {
 
 # Aim
 
-- Locate the peak and range of a selective sweep of interest on chromosome 4 in the genome of the studied baltic herring samples, and find out which gene/genes that have played a key role in the development of the new herring subspecies. 
+Locate the peak and range of a selective sweep of interest on chromosome 4 in the genome of the studied baltic herring samples, and find out which gene/genes that have played a key role in the development of the new herring subspecies. 
 
 ---
 
@@ -123,7 +123,10 @@ Then read output into R and plot
 
 ---
 
-# Read the files into R
+# Check population structure
+
+Read the files into R
+
 .tiny[
 ```{r, message=FALSE, echo=TRUE}
 library(tidyverse)
@@ -144,7 +147,7 @@ eigenvec <- eigenvec %>%
   mutate(Area = str_extract(ID1, paste(areas, collapse = "|"))) #<<
 ```
 
-# Calculate variance and create label
+Calculate variance and create label
 
 ```{r, variance-label, echo=T}
 variance_label <- function(pc, var_vector) {
@@ -203,7 +206,7 @@ Then read into R
 
 ---
 
-# Bash stuff (skip? keep --freq2 command?)
+# Calculate allele frequencies
 
 ```{bash, comment='#', eval=F, echo=T}
 # Get sample names
@@ -274,7 +277,7 @@ break_size <- function(positions, window_size) {
 ```
 
 ---
-# Plot allele frequencies (all or just delta?)
+# Plot allele frequencies 
 
 ```{r, message=FALSE, warning=FALSE,fig.width=14,fig.height=5, dev='png'}
 combined_allele_freq %>%
@@ -287,7 +290,7 @@ combined_allele_freq %>%
 
 ---
 
-# Heterozygosity (should we just skip het completely? just show/explain missing?)
+# Heterozygosity 
 
 Use VCFtools to get heterozygosity frequencies
 
@@ -299,7 +302,7 @@ Read into R, calculate delta and also total observations...
 
 ---
 
-# Heterozygosity (skip/keep?)
+# Heterozygosity
 .tiny[
 ```{bash, calculate-het, eval=F, include=F}
 vctools --vcf chr4_atlantic.vcf --keep data/atlantic_samples.txt --hardy --out chr4_atlantic_het
@@ -352,7 +355,7 @@ atlantic_baltic_het_freq %>%
 
 ---
 
-# Filter the data (keep?)
+# Filter the data
 
 ```{r, comment='#', filter-missingness}
 # Choose a filter threshold, % of max
@@ -375,7 +378,7 @@ baltic_het_freq2 <- baltic_het_freq %>% select(POS, FREQ, ID)
 
 ---
 
-# After filtering (show only delta?)
+# After filtering
 
 ```{r, message=FALSE, warning=FALSE,fig.width=14,fig.height=5, dev='png'}
 combined_allele_freq %>%
@@ -384,7 +387,7 @@ combined_allele_freq %>%
   summarize(`Position (Mb)` = mean(POS/1e6), `Mean Frequency` = mean(FREQ)) %>%
   ggplot(aes(`Position (Mb)`,`Mean Frequency`, col = ID)) + 
   geom_jitter(width = 0, height = 0.03, size = .1, alpha = .3) + 
-  facet_wrap(~ID, ncol = 3) + theme_minimal()
+  facet_wrap(~ID, ncol = 3)
 ```
 
 ???
@@ -393,7 +396,7 @@ Mention here the delta-freq peak
 
 ---
 
-# Should we put a zoomed in plot here?
+# Sweep region 
 
 ```{r, message=FALSE, echo=FALSE, warning=FALSE, dev='png'}
 combined_allele_freq %>%
@@ -403,7 +406,6 @@ combined_allele_freq %>%
   mutate(`Position (Mb)` = POS/1e6, `Frequency` = FREQ) %>%
   ggplot(aes(`Position (Mb)`,`Frequency`)) + 
   geom_jitter(width = 0, height = 0, size = .3, alpha = 1, show.legend = FALSE ) + 
-  theme_minimal() +
   ggtitle("Delta Allele Freq")
 ```
 
@@ -637,7 +639,7 @@ combined_data <- rbind(atlantic_allele_freq,
 
 # Summary plot 
 
-```{r plot-delta-gene-names, eval=T, echo=FALSE, warnings=F, message=F}
+```{r plot-delta-gene-names, eval=T, echo=FALSE, warning=F, message=F}
 library(ggrepel)
 
 combined_data %>%
@@ -651,7 +653,7 @@ combined_data %>%
   geom_text_repel(data = annotated_gene_names, 
                   aes(x = mean.pos/1e6, y = ifelse(mean.freq>0.62,mean.freq, NA), label = Gene_ID), 
                   max.overlaps = Inf, 
-                 min.segment.length = 1,
+                 min.segment.length = 0.7,
                   segment.size = 0.3,
                   box.padding = 1,
                  na.rm = T,
@@ -694,14 +696,6 @@ This as well (if needed)
 - Hill et al. showed replacement of phenylalanine by tyrosine at position 261 in rhodopsin. This allows better absorption of red wavelengths.
 
 - The Baltic Sea has a red shifted light environment compared to the Atlantic Ocean which is blue shifted. The baltic herring fixed a mutation allowing them to see better in their new environment. 
-
----
-
-# Conclusion
-
-- "Also comment on the project and the methods you used." 
-
-- "Could you have done it in a different way? What difficulties did you encounter? etc."
 
 ---
 

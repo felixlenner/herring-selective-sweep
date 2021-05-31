@@ -50,7 +50,7 @@ pre {
 
 # Aim
 
-- Locate the peak and range of a selective sweep of interest on chromosome 4 in the genome of the studied baltic herring samples, and find out which gene/genes that have played a key role in the development of the new herring subspecies. 
+Locate the peak and range of a selective sweep of interest on chromosome 4 in the genome of the studied baltic herring samples, and find out which gene/genes that have played a key role in the development of the new herring subspecies. 
 
 ---
 
@@ -100,7 +100,10 @@ Then read output into R and plot
 
 ---
 
-# Read the files into R
+# Check population structure
+
+Read the files into R
+
 .tiny[
 
 ```r
@@ -122,7 +125,7 @@ eigenvec &lt;- eigenvec %&gt;%
 * mutate(Area = str_extract(ID1, paste(areas, collapse = "|")))
 ```
 
-# Calculate variance and create label
+Calculate variance and create label
 
 
 ```r
@@ -198,7 +201,7 @@ Then read into R
 
 ---
 
-# Bash stuff (skip? keep --freq2 command?)
+# Calculate allele frequencies
 
 
 ```bash
@@ -274,7 +277,7 @@ break_size &lt;- function(positions, window_size) {
 ```
 
 ---
-# Plot allele frequencies (all or just delta?)
+# Plot allele frequencies 
 
 
 ```r
@@ -290,7 +293,7 @@ combined_allele_freq %&gt;%
 
 ---
 
-# Heterozygosity (should we just skip het completely? just show/explain missing?)
+# Heterozygosity 
 
 Use VCFtools to get heterozygosity frequencies
 
@@ -303,7 +306,7 @@ Read into R, calculate delta and also total observations...
 
 ---
 
-# Heterozygosity (skip/keep?)
+# Heterozygosity
 .tiny[
 
 
@@ -357,7 +360,7 @@ atlantic_baltic_het_freq %&gt;%
 
 ---
 
-# Filter the data (keep?)
+# Filter the data
 
 
 ```r
@@ -377,7 +380,7 @@ positions_to_keep &lt;- inner_join(atlantic_het_freq, baltic_het_freq, by = "POS
 
 ---
 
-# After filtering (show only delta?)
+# After filtering
 
 
 ```r
@@ -387,7 +390,7 @@ combined_allele_freq %&gt;%
   summarize(`Position (Mb)` = mean(POS/1e6), `Mean Frequency` = mean(FREQ)) %&gt;%
   ggplot(aes(`Position (Mb)`,`Mean Frequency`, col = ID)) + 
   geom_jitter(width = 0, height = 0.03, size = .1, alpha = .3) + 
-  facet_wrap(~ID, ncol = 3) + theme_minimal()
+  facet_wrap(~ID, ncol = 3)
 ```
 
 ![](herring_project_presentation_files/figure-html/unnamed-chunk-12-1.png)&lt;!-- --&gt;
@@ -398,7 +401,7 @@ Mention here the delta-freq peak
 
 ---
 
-# Should we put a zoomed in plot here?
+# Sweep region 
 
 ![](herring_project_presentation_files/figure-html/unnamed-chunk-13-1.png)&lt;!-- --&gt;
 
@@ -656,11 +659,6 @@ I could take the annotations parts maybe? (and more if needed)
 
 # Summary plot 
 
-
-```
-## Warning: Removed 9 rows containing missing values (geom_point).
-```
-
 ![](herring_project_presentation_files/figure-html/plot-delta-gene-names-1.png)&lt;!-- --&gt;
 
 
@@ -688,14 +686,6 @@ This as well (if needed)
 - Hill et al. showed replacement of phenylalanine by tyrosine at position 261 in rhodopsin. This allows better absorption of red wavelengths.
 
 - The Baltic Sea has a red shifted light environment compared to the Atlantic Ocean which is blue shifted. The baltic herring fixed a mutation allowing them to see better in their new environment. 
-
----
-
-# Conclusion
-
-- "Also comment on the project and the methods you used." 
-
-- "Could you have done it in a different way? What difficulties did you encounter? etc."
 
 ---
 
