@@ -401,8 +401,8 @@ Mention here the delta-freq peak
 # Heterozygosity after filtering
 
 ```{r, message=FALSE, warning=FALSE,fig.width=14,fig.height=5, dev='png'}
-combined_het_freq %>%
-  filter(POS %in% positions_to_keep$POS) %>% #<<
+combined_het_freq %>% #<<
+  filter(POS %in% positions_to_keep$POS) %>% 
   group_by(gr = cut(POS, break_size(POS, window_size)), ID) %>% 
   summarize(`Position (Mb)` = mean(POS/1e6), `Mean Frequency` = mean(FREQ)) %>%
   ggplot(aes(`Position (Mb)`,`Mean Frequency`, col = ID)) + 
@@ -665,18 +665,15 @@ combined_data %>%
   mutate(`Position (Mb)` = POS/1e6, `Frequency` = FREQ) %>%
   ggplot(aes(`Position (Mb)`, `Frequency`)) + 
   geom_jitter(alpha = .3, size = .3, width = 0, height = 0) + 
-  geom_point(data = annotated_gene_names, aes(x = mean.pos/1e6, y = ifelse(mean.freq>0.62,mean.freq, NA), color = "top annotated genes"), alpha = 1, size = .3, show.legend = FALSE) +
-  geom_text_repel(data = annotated_gene_names, 
-                  aes(x = mean.pos/1e6, y = ifelse(mean.freq>0.62,mean.freq, NA), label = Gene_ID), 
+  geom_point(data = annotated_gene_names, aes(x = mean.pos/1e6, y = ifelse(mean.freq>0.6,mean.freq, NA), color = "top annotated genes"), alpha = 1, size = .5, show.legend = FALSE) +
+  geom_label_repel(data = annotated_gene_names, 
+                  aes(x = mean.pos/1e6, y = ifelse(mean.freq>0.6,mean.freq, NA), label = Gene_ID),
                   max.overlaps = Inf, 
-                 min.segment.length = 0.5,
+                  min.segment.length = 0,
                   segment.size = 0.3,
                   box.padding = 1,
-                 na.rm = T,
-                 size = 4
-                  #segment.color = "red",
-                  #arrow = arrow(length = unit(0.07, "inches"), type = "open")
-                  ) + #+ theme(legend.position = "none") + 
+                  na.rm = T,
+                  size = 2) +
   ylab("Delta Allele Freq") + 
   xlab("Chromosome 4 (Mb)")
   

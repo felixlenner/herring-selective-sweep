@@ -405,8 +405,8 @@ Mention here the delta-freq peak
 
 
 ```r
-combined_het_freq %&gt;%
-* filter(POS %in% positions_to_keep$POS) %&gt;%
+*combined_het_freq %&gt;%
+  filter(POS %in% positions_to_keep$POS) %&gt;% 
   group_by(gr = cut(POS, break_size(POS, window_size)), ID) %&gt;% 
   summarize(`Position (Mb)` = mean(POS/1e6), `Mean Frequency` = mean(FREQ)) %&gt;%
   ggplot(aes(`Position (Mb)`,`Mean Frequency`, col = ID)) + 
