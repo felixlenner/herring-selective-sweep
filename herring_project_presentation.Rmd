@@ -653,11 +653,11 @@ combined_data %>%
   geom_text_repel(data = annotated_gene_names, 
                   aes(x = mean.pos/1e6, y = ifelse(mean.freq>0.62,mean.freq, NA), label = Gene_ID), 
                   max.overlaps = Inf, 
-                 min.segment.length = 0.7,
+                 min.segment.length = 0.5,
                   segment.size = 0.3,
                   box.padding = 1,
                  na.rm = T,
-                 size = 2
+                 size = 4
                   #segment.color = "red",
                   #arrow = arrow(length = unit(0.07, "inches"), type = "open")
                   ) + #+ theme(legend.position = "none") + 
@@ -679,7 +679,7 @@ This as well (if needed)
 
 ---
 
-# Conclusion
+# Conclusions
 
 - Results show that only one selective sweep occurred in chromosome 4 of the baltic herring genome
 
@@ -690,6 +690,10 @@ This as well (if needed)
 - ENSCHAG00000025879, ENSCHAG00000025886 and ENSCHAG00000025895 have poorly defined functions
 
 - magi1a, qars1, espn are involved in signal transduction, glutamine-tRNA ligase activity and actin filament binding activity respectively. Hard to understand how their mutations will affect the population without further investigation
+
+---
+
+# Conclusions
 
 - rho creates G-protein-coupled photoreceptors used as light receptors
 
