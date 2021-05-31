@@ -35,7 +35,7 @@ pre {
 
 
 
-# Introduction/Background 
+# Background 
 
 - The Baltic Sea was formed approximately 15,000 years ago, and following its creation the Atlantic herring migrated into the new habitat causing a bottleneck of their gene pool and forming a population that would become the subspecies Baltic herring. 
 
@@ -46,8 +46,11 @@ pre {
 - Selective sweeps can be identified by changes in heterozygosity and increases in allele frequency in regions.
 
 - By determining the presence of selective sweeps in the chromosome, it should be possible to discover the genes that had to mutate (and then became “fixed” in the population) in order to allow the herring to adapt to their new environment. 
+---
 
-- Aim: Locate the peak and range of a selective sweep of interest on chromosome 4 in the genome of the studied baltic herring samples, and find out which gene/genes that have played a key role in the development of the new herring subspecies. 
+# Aim
+
+- Locate the peak and range of a selective sweep of interest on chromosome 4 in the genome of the studied baltic herring samples, and find out which gene/genes that have played a key role in the development of the new herring subspecies. 
 
 ---
 
@@ -97,8 +100,8 @@ Then read output into R and plot
 
 ---
 
-# Read the files into R (skip?)
-
+# Read the files into R
+.tiny[
 
 ```r
 library(tidyverse)
@@ -119,9 +122,7 @@ eigenvec &lt;- eigenvec %&gt;%
 * mutate(Area = str_extract(ID1, paste(areas, collapse = "|")))
 ```
 
----
-
-# Calculate variance and create label (double-skip?)
+# Calculate variance and create label
 
 
 ```r
@@ -136,6 +137,7 @@ variance_label &lt;- function(pc, var_vector) {
   return(label)
 }
 ```
+]
 
 ---
 
@@ -215,7 +217,7 @@ vcftools --vcf data/chr4_baltic.recode.vcf --freq2 --out chr4_baltic
 
 ---
 
-# Read Allele frequencies into R (skip?)
+# Read Allele frequencies into R
 
 
 ```r
@@ -242,7 +244,7 @@ baltic_allele_freq &lt;- baltic_raw_allele_freq %&gt;%
 
 ---
 
-# Calculate delta and window-size (skip windows?)
+# Calculate delta and window-size
 
 
 ```r
@@ -652,7 +654,12 @@ I could take the annotations parts maybe? (and more if needed)
 
 
 
-# Summary (change plots?)
+# Summary plot 
+
+
+```
+## Warning: Removed 9 rows containing missing values (geom_point).
+```
 
 ![](herring_project_presentation_files/figure-html/plot-delta-gene-names-1.png)&lt;!-- --&gt;
 
@@ -666,7 +673,25 @@ This as well (if needed)
 
 # Conclusion
 
-- "Conclusions (What do the results tell us?)."
+- Results show that only one selective sweep occurred in chromosome 4 of the baltic herring genome
+
+- This occurred between approximately 11-12 Mb
+
+- The genes involved in the sweep were magi1a, rho, qars1, espn, ENSCHAG00000025879, ENSCHAG00000025886 and ENSCHAG00000025895 and became fixed in the new population.
+
+- ENSCHAG00000025879, ENSCHAG00000025886 and ENSCHAG00000025895 have poorly defined functions
+
+- magi1a, qars1, espn are involved in signal transduction, glutamine-tRNA ligase activity and actin filament binding activity respectively. Hard to understand how their mutations will affect the population without further investigation
+
+- rho creates G-protein-coupled photoreceptors used as light receptors
+
+- Hill et al. showed replacement of phenylalanine by tyrosine at position 261 in rhodopsin. This allows better absorption of red wavelengths.
+
+- The Baltic Sea has a red shifted light environment compared to the Atlantic Ocean which is blue shifted. The baltic herring fixed a mutation allowing them to see better in their new environment. 
+
+---
+
+# Conclusion
 
 - "Also comment on the project and the methods you used." 
 
