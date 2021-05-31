@@ -401,9 +401,26 @@ Mention here the delta-freq peak
 
 ---
 
-# Sweep region 
+# Heterozygosity after filtering
+
+
+```r
+combined_het_freq %&gt;%
+* filter(POS %in% positions_to_keep$POS) %&gt;%
+  group_by(gr = cut(POS, break_size(POS, window_size)), ID) %&gt;% 
+  summarize(`Position (Mb)` = mean(POS/1e6), `Mean Frequency` = mean(FREQ)) %&gt;%
+  ggplot(aes(`Position (Mb)`,`Mean Frequency`, col = ID)) + 
+  geom_jitter(width = 0, height = 0.03, size = .1, alpha = .3) + 
+  facet_wrap(~ID, ncol = 3)
+```
 
 ![](herring_project_presentation_files/figure-html/unnamed-chunk-13-1.png)&lt;!-- --&gt;
+
+---
+
+# Sweep region 
+
+![](herring_project_presentation_files/figure-html/unnamed-chunk-14-1.png)&lt;!-- --&gt;
 
 ---
 

@@ -374,6 +374,8 @@ positions_to_keep <- inner_join(atlantic_het_freq, baltic_het_freq, by = "POS") 
 # Remove the TOT_OBS column to be able to combine with delta_het_freq and plot without changing the code
 atlantic_het_freq2 <- atlantic_het_freq %>% select(POS, FREQ, ID)
 baltic_het_freq2 <- baltic_het_freq %>% select(POS, FREQ, ID)
+
+combined_het_freq <- rbind(atlantic_het_freq2, baltic_het_freq2, delta_het_freq)
 ```
 
 ---
@@ -393,6 +395,20 @@ combined_allele_freq %>%
 ???
 
 Mention here the delta-freq peak
+
+---
+
+# Heterozygosity after filtering
+
+```{r, message=FALSE, warning=FALSE,fig.width=14,fig.height=5, dev='png'}
+combined_het_freq %>%
+  filter(POS %in% positions_to_keep$POS) %>% #<<
+  group_by(gr = cut(POS, break_size(POS, window_size)), ID) %>% 
+  summarize(`Position (Mb)` = mean(POS/1e6), `Mean Frequency` = mean(FREQ)) %>%
+  ggplot(aes(`Position (Mb)`,`Mean Frequency`, col = ID)) + 
+  geom_jitter(width = 0, height = 0.03, size = .1, alpha = .3) + 
+  facet_wrap(~ID, ncol = 3)
+```
 
 ---
 
@@ -551,7 +567,7 @@ I could take the annotations parts maybe? (and more if needed)
 # Set eval to true if you dont want to run the biomaRt code
 # The biomaRt code chunk then needs to be set to eval=F
 # And also comment out the labels part of the plot which is set by biomaRt
-# Alternatively, change the label from extrernal_gene_name (previously zfin_id_symbol) to Gene_ID. 
+# Alternatively, change the label from external_gene_name (previously zfin_id_symbol) to Gene_ID. 
 
 annotated_gene_names <- annotated_positions %>% group_by(Gene_ID) %>%                        # Group by Gene_ID
   filter(Feature_Type == "transcript" &        # Filter for transcripts
